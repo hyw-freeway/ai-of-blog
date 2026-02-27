@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (可选，如果想保留测试上传的文件可以注释掉)
+back_end_of_blog/uploads/*
+!back_end_of_blog/uploads/.gitkeep
+
+# Temporary files
+*.tmp
+*.temp

@@ -1,0 +1,145 @@
+/**
+ * Markdown 编辑器样式 - SimpleMDE 适配
+ */
+.markdown-editor-wrapper {
+  width: 100%;
+}
+
+.editor-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 10px;
+}
+
+/* SimpleMDE 样式覆盖 */
+.CodeMirror,
+.CodeMirror-scroll {
+  min-height: 350px;
+}
+
+.editor-toolbar {
+  background-color: var(--color-bg) !important;
+  border: 1px solid var(--color-border) !important;
+  border-bottom: none !important;
+  border-radius: var(--radius-md) var(--radius-md) 0 0 !important;
+  padding: 8px !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+.editor-toolbar button {
+  color: var(--color-text-secondary) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+.editor-toolbar button:hover {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.editor-toolbar button.active {
+  background-color: var(--color-accent-light) !important;
+  color: var(--color-accent) !important;
+}
+
+.editor-toolbar i.separator {
+  border-left-color: var(--color-border) !important;
+}
+
+.CodeMirror {
+  border: 1px solid var(--color-border) !important;
+  border-radius: 0 0 var(--radius-md) var(--radius-md) !important;
+  background-color: var(--color-surface) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+  color: var(--color-text-primary) !important;
+}
+
+.CodeMirror-focused {
+  border-color: var(--color-accent) !important;
+}
+
+/* 编辑器中标题字体大小 */
+.CodeMirror .cm-header-1 {
+  font-size: 18px !important;
+}
+
+.CodeMirror .cm-header-2 {
+  font-size: 16px !important;
+}
+
+.CodeMirror .cm-header-3 {
+  font-size: 14px !important;
+}
+
+.CodeMirror .cm-header-4,
+.CodeMirror .cm-header-5,
+.CodeMirror .cm-header-6 {
+  font-size: 13px !important;
+}
+
+.editor-preview {
+  background-color: var(--color-surface) !important;
+  font-family: var(--font-sans) !important;
+  padding: 20px !important;
+}
+
+.editor-preview h1,
+.editor-preview h2,
+.editor-preview h3 {
+  color: var(--color-text-primary) !important;
+}
+
+.editor-preview p {
+  color: var(--color-text-primary) !important;
+  line-height: 1.8 !important;
+}
+
+.editor-preview a {
+  color: var(--color-accent) !important;
+}
+
+.editor-preview code {
+  background-color: var(--color-bg) !important;
+  padding: 2px 6px !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+.editor-preview pre {
+  background-color: var(--color-bg) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 16px !important;
+}
+
+.editor-preview blockquote {
+  border-left: 4px solid var(--color-accent) !important;
+  background-color: var(--color-bg) !important;
+  padding: 12px 16px !important;
+  margin: 16px 0 !important;
+}
+
+.editor-preview img {
+  max-width: 100% !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.editor-statusbar {
+  padding: 8px 12px !important;
+  color: var(--color-text-muted) !important;
+  font-size: 12px !important;
+}
+
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .CodeMirror,
+  .CodeMirror-scroll {
+    min-height: 280px;
+  }
+  
+  .editor-toolbar button {
+    padding: 4px !important;
+    margin: 2px !important;
+  }
+}
