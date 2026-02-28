@@ -1,8 +1,9 @@
 /**
  * 文章详情页
  * 展示单篇文章完整内容，支持 Markdown 渲染和 PDF 预览
+ * 包含侧边目录导航功能
  */
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { marked } from 'marked';
 import { getArticle, deleteArticle, getFileUrl, getSummaryStreamUrl } from '../services/api';
@@ -11,6 +12,63 @@ import PdfViewer from '../components/PdfViewer';
 import Modal from '../components/Modal';
 import './ArticleDetail.css';
 import '../components/AIToolbar.css';
+
+// 清理 Markdown 格式，提取纯文本
+const stripMarkdown = (text) => {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')  // 加粗
+    .replace(/\*(.+?)\*/g, '$1')       // 斜体
+    .replace(/__(.+?)__/g, '$1')       // 加粗
+    .replace(/_(.+?)_/g, '$1')         // 斜体
+    .replace(/~~(.+?)~~/g, '$1')       // 删除线
+    .replace(/`(.+?)`/g, '$1')         // 行内代码
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1') // 链接
+    .replace(/!\[.*?\]\(.+?\)/g, '')   // 图片
+    .trim();
+};
+
+// 生成标题 ID
+const generateHeadingId = (text) => {
+  const cleanText = stripMarkdown(text);
+  return cleanText
+    .toLowerCase()
+    .replace(/[^\w\u4e00-\u9fa5]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+};
+
+// 从 Markdown 内容中提取标题（跳过代码块）
+const extractHeadings = (content) => {
+  if (!content) return [];
+  const headings = [];
+  const lines = content.split('\n');
+  let inCodeBlock = false;
+  
+  lines.forEach((line) => {
+    // 检测代码块的开始和结束
+    if (line.trim().startsWith('```')) {
+      inCodeBlock = !inCodeBlock;
+      return;
+    }
+    
+    // 跳过代码块内的内容
+    if (inCodeBlock) return;
+    
+    const h1Match = line.match(/^#\s+(.+)$/);
+    const h2Match = line.match(/^##\s+(.+)$/);
+    
+    if (h1Match) {
+      const text = h1Match[1].trim();
+      const displayText = stripMarkdown(text);
+      headings.push({ level: 1, text: displayText, id: generateHeadingId(text) });
+    } else if (h2Match) {
+      const text = h2Match[1].trim();
+      const displayText = stripMarkdown(text);
+      headings.push({ level: 2, text: displayText, id: generateHeadingId(text) });
+    }
+  });
+  
+  return headings;
+};
 
 // 文件图标 SVG
 const FileIcons = {
@@ -100,10 +158,33 @@ const getFullFileUrl = (url) => {
   return getFileUrl(url);
 };
 
+// 自定义 marked renderer，为标题添加 id
+const renderer = new marked.Renderer();
+renderer.heading = function(textOrObj, level, rawText) {
+  // 兼容新旧版本 marked API
+  let text, depth, raw;
+  if (typeof textOrObj === 'object') {
+    // 新版 marked (v4+): 接收对象 { text, depth, raw }
+    text = textOrObj.text;
+    depth = textOrObj.depth;
+    raw = textOrObj.raw;
+  } else {
+    // 旧版 marked: 接收 (text, level, raw)
+    text = textOrObj;
+    depth = level;
+    raw = rawText;
+  }
+  // 使用 raw 去除 # 前缀后生成 ID，确保与 extractHeadings 一致
+  const rawTitle = (raw || '').replace(/^#+\s*/, '').trim();
+  const id = generateHeadingId(rawTitle || text);
+  return `<h${depth} id="${id}">${text}</h${depth}>`;
+};
+
 // 配置 marked
 marked.setOptions({
   gfm: true,
   breaks: true,
+  renderer: renderer,
 });
 
 function ArticleDetail() {
@@ -121,7 +202,9 @@ function ArticleDetail() {
   const [streamingSummary, setStreamingSummary] = useState('');
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState(null);
+  const [activeHeading, setActiveHeading] = useState('');
   const eventSourceRef = useRef(null);
+  const contentRef = useRef(null);
 
   const loggedIn = isLoggedIn();
   const currentUser = getUsername();
@@ -131,6 +214,45 @@ function ArticleDetail() {
     if (!article?.content) return '';
     return marked(article.content);
   }, [article?.content]);
+
+  // 提取标题列表
+  const headings = useMemo(() => {
+    if (!article?.content) return [];
+    return extractHeadings(article.content);
+  }, [article?.content]);
+
+  // 滚动监听，高亮当前可见的标题
+  useEffect(() => {
+    if (headings.length === 0) return;
+
+    const handleScroll = () => {
+      const scrollPosition = window.scrollY + 100;
+      
+      let currentHeading = '';
+      for (const heading of headings) {
+        const element = document.getElementById(heading.id);
+        if (element && element.offsetTop <= scrollPosition) {
+          currentHeading = heading.id;
+        }
+      }
+      setActiveHeading(currentHeading);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [headings]);
+
+  // 点击导航项滚动到对应位置
+  const scrollToHeading = useCallback((id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      const offset = 80;
+      const top = element.offsetTop - offset;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
+  }, []);
 
   useEffect(() => {
     fetchArticle();
@@ -391,8 +513,28 @@ function ArticleDetail() {
   }
 
   return (
-    <div className="article-detail">
-      <article className="detail-content">
+    <div className={`article-detail ${headings.length > 0 ? 'has-toc' : ''}`}>
+      {/* 侧边目录导航 */}
+      {headings.length > 0 && (
+        <aside className="article-toc">
+          <div className="toc-wrapper">
+            <h4 className="toc-title">目录</h4>
+            <nav className="toc-nav">
+              {headings.map((heading) => (
+                <button
+                  key={heading.id}
+                  className={`toc-item toc-level-${heading.level} ${activeHeading === heading.id ? 'active' : ''}`}
+                  onClick={() => scrollToHeading(heading.id)}
+                >
+                  {heading.text}
+                </button>
+              ))}
+            </nav>
+          </div>
+        </aside>
+      )}
+
+      <article className="detail-content" ref={contentRef}>
         <header className="detail-header">
           <h1 className="detail-title">{article.title}</h1>
           

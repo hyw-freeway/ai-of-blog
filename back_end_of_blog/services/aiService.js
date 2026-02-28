@@ -9,7 +9,7 @@ const { AI_CONFIG, EMBEDDING_CONFIG, PROMPTS } = require('../config/ai');
  * 调用 AI 聊天接口
  */
 async function callAI(messages, options = {}) {
-  const { model = AI_CONFIG.model, maxTokens = 500, temperature = 0.7 } = options;
+  const { model = AI_CONFIG.model, maxTokens = 500, temperature = 0.7, timeout = AI_CONFIG.timeout } = options;
   
   if (!AI_CONFIG.apiKey) {
     throw new Error('AI API Key 未配置，请在环境变量中设置 AI_API_KEY');
@@ -29,7 +29,7 @@ async function callAI(messages, options = {}) {
           'Authorization': `Bearer ${AI_CONFIG.apiKey}`,
           'Content-Type': 'application/json',
         },
-        timeout: AI_CONFIG.timeout,
+        timeout: timeout,
       }
     );
     return response.data;
@@ -122,7 +122,7 @@ async function proofread(content) {
   
   const response = await callAI([
     { role: 'user', content: prompt }
-  ], { maxTokens: Math.min(content.length * 2, 4000), temperature: 0.3 });
+  ], { maxTokens: Math.min(content.length * 2, 4000), temperature: 0.3, timeout: 120000 });
 
   return response.choices[0].message.content.trim();
 }

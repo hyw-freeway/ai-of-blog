@@ -9,7 +9,7 @@ const AI_CONFIG = {
   apiKey: process.env.AI_API_KEY || '',
   baseUrl: process.env.AI_BASE_URL || 'https://api.deepseek.com/v1',
   model: process.env.AI_MODEL || 'deepseek-chat',
-  timeout: parseInt(process.env.AI_TIMEOUT) || 30000,
+  timeout: parseInt(process.env.AI_TIMEOUT) || 60000,
 };
 
 const EMBEDDING_CONFIG = {

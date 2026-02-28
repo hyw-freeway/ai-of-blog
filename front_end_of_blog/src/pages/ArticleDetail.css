@@ -1,10 +1,116 @@
 /**
  * 文章详情页样式 - 单栏阅读布局、大标题、宽松排版
+ * 支持侧边目录导航
  */
 .article-detail {
   padding: 48px 0 80px;
   max-width: var(--content-width);
   margin: 0 auto;
+  position: relative;
+}
+
+/* 有目录时调整布局 */
+.article-detail.has-toc {
+  max-width: calc(var(--content-width) + 280px);
+}
+
+/* 侧边目录导航 */
+.article-toc {
+  position: fixed;
+  left: calc(50% + var(--content-width) / 2 + 80px);
+  top: 120px;
+  width: 220px;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.toc-wrapper {
+  padding: 20px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.toc-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.toc-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toc-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: var(--transition-fast);
+  position: relative;
+}
+
+.toc-item:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg);
+}
+
+.toc-item.active {
+  color: var(--color-accent);
+  background-color: var(--color-accent-light);
+  font-weight: 500;
+}
+
+.toc-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  background-color: var(--color-accent);
+  border-radius: 2px;
+}
+
+/* 二级标题缩进 */
+.toc-level-2 {
+  padding-left: 24px;
+  font-size: 12px;
+}
+
+/* 目录滚动条样式 */
+.article-toc::-webkit-scrollbar {
+  width: 4px;
+}
+
+.article-toc::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.article-toc::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 2px;
+}
+
+.article-toc::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-text-muted);
 }
 
 .detail-loading,
@@ -337,6 +443,16 @@
 }
 
 /* 响应式 */
+@media (max-width: 1280px) {
+  .article-toc {
+    display: none;
+  }
+
+  .article-detail.has-toc {
+    max-width: var(--content-width);
+  }
+}
+
 @media (max-width: 768px) {
   .article-detail {
     padding: 24px 0 56px;

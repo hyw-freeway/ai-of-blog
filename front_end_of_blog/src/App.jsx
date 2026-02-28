@@ -4,6 +4,7 @@
  */
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import BackToTop from './components/BackToTop';
 import Home from './pages/Home';
 import ArticleDetail from './pages/ArticleDetail';
 import Login from './pages/Login';
@@ -30,6 +31,7 @@ function App() {
             <p>&copy; {new Date().getFullYear()} 个人博客. All rights reserved.</p>
           </div>
         </footer>
+        <BackToTop />
       </div>
     </BrowserRouter>
   );

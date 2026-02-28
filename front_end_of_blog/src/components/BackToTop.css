@@ -1,0 +1,60 @@
+/**
+ * 返回顶部按钮样式
+ */
+.back-to-top {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  z-index: 100;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: var(--transition-fast);
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.back-to-top:hover {
+  background-color: var(--color-text-primary);
+  border-color: var(--color-text-primary);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.back-to-top svg {
+  width: 20px;
+  height: 20px;
+  color: inherit;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .back-to-top {
+    bottom: 24px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .back-to-top svg {
+    width: 18px;
+    height: 18px;
+  }
+}
