@@ -1,10 +1,11 @@
 /**
  * 文章上传页
- * 包含标题、Markdown 编辑器、标签输入
+ * 包含标题、Markdown 编辑器、标签输入、AI 功能
  */
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MarkdownEditor from '../components/MarkdownEditor';
+import AIToolbar from '../components/AIToolbar';
 import Modal from '../components/Modal';
 import { createArticle } from '../services/api';
 import { isLoggedIn } from '../utils/auth';
@@ -44,6 +45,20 @@ function Upload() {
     setError('');
   };
 
+  const handleTagsGenerated = (tags) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags ? `${prev.tags},${tags}` : tags
+    }));
+  };
+
+  const handleContentCorrected = (corrected) => {
+    setFormData(prev => ({
+      ...prev,
+      content: corrected
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -71,7 +86,7 @@ function Upload() {
         setModal({
           isOpen: true,
           title: '发布成功',
-          message: '文章已成功发布！',
+          message: res.msg || '文章已成功发布！',
           type: 'alert'
         });
       } else {
@@ -121,6 +136,16 @@ function Upload() {
           </div>
 
           <div className="form-group">
+            <label className="form-label">AI 助手</label>
+            <AIToolbar
+              title={formData.title}
+              content={formData.content}
+              onTagsGenerated={handleTagsGenerated}
+              onContentCorrected={handleContentCorrected}
+            />
+          </div>
+
+          <div className="form-group">
             <label htmlFor="tags" className="form-label">文章标签</label>
             <input
               type="text"
@@ -131,6 +156,7 @@ function Upload() {
               onChange={handleChange}
               placeholder="多个标签用逗号分隔，如：技术,React,前端"
             />
+            <p className="form-hint">留空则发布时自动由 AI 生成标签，或使用上方「AI 生成标签」按钮预览</p>
           </div>
 
           <div className="form-actions">

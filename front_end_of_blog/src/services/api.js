@@ -8,7 +8,7 @@ import { getToken, clearAuth } from '../utils/auth';
 // 创建 axios 实例
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001',
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -40,9 +40,11 @@ api.interceptors.response.use(
 
 // ========== 文章相关 API ==========
 
-// 获取文章列表（支持搜索）
-export const getArticles = (keyword = '') => {
-  const params = keyword ? { keyword } : {};
+// 获取文章列表（支持搜索和语义搜索）
+export const getArticles = (keyword = '', semantic = false) => {
+  const params = {};
+  if (keyword) params.keyword = keyword;
+  if (semantic) params.semantic = 'true';
   return api.get('/api/articles', { params });
 };
 
@@ -92,5 +94,30 @@ export const login = (username, password) =>
 
 // 验证 token
 export const verifyToken = () => api.get('/api/auth/verify');
+
+// ========== AI 相关 API ==========
+
+// 生成文章摘要
+export const generateSummary = (content) => 
+  api.post('/api/ai/summary', { content });
+
+// 获取流式摘要 SSE URL
+export const getSummaryStreamUrl = (articleId, regenerate = false) => {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+  const url = `${baseUrl}/api/ai/summary/stream/${articleId}`;
+  return regenerate ? `${url}?regenerate=true` : url;
+};
+
+// 生成文章标签
+export const generateTags = (title, content) => 
+  api.post('/api/ai/tags', { title, content });
+
+// 语法纠错
+export const proofreadContent = (content) => 
+  api.post('/api/ai/proofread', { content });
+
+// 生成文章向量嵌入
+export const generateEmbedding = (title, content) => 
+  api.post('/api/ai/embedding', { title, content });
 
 export default api;

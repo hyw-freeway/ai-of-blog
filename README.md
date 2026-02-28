@@ -24,11 +24,21 @@ personBlog/
 ### 访客权限
 - 浏览所有已发布的文章列表
 - 查看单篇文章详情
+- 查看 AI 生成的文章摘要
+- 使用智能语义搜索
 
 ### 管理员权限
 - 管理员登录（账号密码验证）
-- 发布新文章（支持富文本编辑）
+- 发布新文章（支持 Markdown 编辑）
 - 编辑/删除自己发布的文章
+- AI 自动生成文章标签
+- AI 语法纠错
+
+### AI 增强功能 (v2.0 新增)
+- **AI 文章摘要**：自动生成 80-100 字精简摘要，文章详情页展示
+- **AI 标签生成**：一键提取文章关键词，自动生成 3-5 个标签
+- **AI 语法纠错**：检测并修正中文错别字和语法问题
+- **智能语义搜索**：基于向量嵌入的语义搜索，支持自然语言查询
 
 ## 快速开始
 
@@ -125,11 +135,52 @@ npm run dev
 | 接口 | 方法 | 功能 | 权限 |
 |------|------|------|------|
 | `/api/articles` | GET | 获取文章列表 | 公开 |
+| `/api/articles?semantic=true&keyword=xxx` | GET | 语义搜索 | 公开 |
 | `/api/articles/:id` | GET | 获取文章详情 | 公开 |
 | `/api/auth/login` | POST | 管理员登录 | 公开 |
 | `/api/articles` | POST | 发布文章 | 需登录 |
 | `/api/articles/:id` | PUT | 编辑文章 | 需登录 |
 | `/api/articles/:id` | DELETE | 删除文章 | 需登录 |
+| `/api/ai/summary` | POST | 生成文章摘要 | 公开 |
+| `/api/ai/tags` | POST | 生成文章标签 | 需登录 |
+| `/api/ai/proofread` | POST | 语法纠错 | 需登录 |
+
+## AI 功能配置
+
+### 1. 获取 API Key
+
+推荐使用以下 AI 服务（任选其一）：
+
+| 服务商 | 费用 | 优势 |
+|--------|------|------|
+| [DeepSeek](https://platform.deepseek.com) | 约 0.001 元/千 tokens | 价格极低，中文效果好 |
+| [硅基流动](https://siliconflow.cn) | 有免费额度 | 支持多种开源模型 |
+| [通义千问](https://dashscope.aliyun.com) | 有免费额度 | 阿里云服务，稳定可靠 |
+
+### 2. 配置环境变量
+
+在 `back_end_of_blog/.env` 中添加：
+
+```env
+# AI 配置（以 DeepSeek 为例）
+AI_PROVIDER=deepseek
+AI_API_KEY=sk-your-api-key
+AI_BASE_URL=https://api.deepseek.com/v1
+AI_MODEL=deepseek-chat
+
+# Embedding 配置（语义搜索用，推荐硅基流动）
+EMBEDDING_API_KEY=sk-your-embedding-api-key
+EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
+EMBEDDING_MODEL=BAAI/bge-m3
+```
+
+### 3. 数据库迁移（已有数据库）
+
+如果已有数据库，执行迁移脚本添加 AI 字段：
+
+```bash
+mysql -u root -p blog_db < database/migrate_ai_fields.sql
+```
 
 ## 部署指南
 

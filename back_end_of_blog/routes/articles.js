@@ -6,6 +6,8 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
+const { semanticSearch, generateArticleEmbedding, generateTags } = require('../services/aiService');
+const { AI_CONFIG } = require('../config/ai');
 
 // 从内容中提取图片 URL
 function extractImages(content) {
@@ -65,16 +67,44 @@ function cleanSummary(content) {
  * GET /api/articles
  * 获取所有文章列表（公开接口）
  * 支持搜索：?keyword=xxx 模糊搜索标题和内容
+ * 支持语义搜索：?semantic=true&keyword=xxx
  * 返回文章列表，包含图片和文件信息
  */
 router.get('/', async (req, res) => {
   try {
-    const { keyword } = req.query;
+    const { keyword, semantic } = req.query;
     
-    let sql = `SELECT id, title, tags, createTime, author, content FROM articles`;
+    // 语义搜索模式
+    if (semantic === 'true' && keyword && keyword.trim() && AI_CONFIG.apiKey) {
+      try {
+        const [allRows] = await pool.execute(
+          `SELECT id, title, tags, createTime, author, content, ai_summary, embedding FROM articles`
+        );
+        
+        const searchResults = await semanticSearch(keyword.trim(), allRows);
+        
+        const articles = searchResults.map(article => ({
+          id: article.id,
+          title: article.title,
+          tags: article.tags,
+          createTime: article.createTime,
+          author: article.author,
+          summary: article.ai_summary || cleanSummary(article.content),
+          images: extractImages(article.content).slice(0, 4),
+          files: extractFiles(article.content).slice(0, 5),
+          similarity: Math.round(article.similarity * 100)
+        }));
+        
+        return res.success(articles, '语义搜索成功');
+      } catch (err) {
+        console.error('语义搜索失败，回退到关键词搜索:', err.message);
+      }
+    }
+    
+    // 常规关键词搜索
+    let sql = `SELECT id, title, tags, createTime, author, content, ai_summary FROM articles`;
     let params = [];
     
-    // 如果有搜索关键词，添加模糊搜索条件
     if (keyword && keyword.trim()) {
       const searchTerm = `%${keyword.trim()}%`;
       sql += ` WHERE title LIKE ? OR content LIKE ?`;
@@ -85,16 +115,15 @@ router.get('/', async (req, res) => {
     
     const [rows] = await pool.execute(sql, params);
     
-    // 处理每篇文章，提取图片和文件
     const articles = rows.map(article => ({
       id: article.id,
       title: article.title,
       tags: article.tags,
       createTime: article.createTime,
       author: article.author,
-      summary: cleanSummary(article.content),
-      images: extractImages(article.content).slice(0, 4), // 最多返回4张图片
-      files: extractFiles(article.content).slice(0, 5) // 最多返回5个文件
+      summary: article.ai_summary || cleanSummary(article.content),
+      images: extractImages(article.content).slice(0, 4),
+      files: extractFiles(article.content).slice(0, 5)
     }));
     
     res.success(articles, keyword ? '搜索成功' : '获取文章列表成功');
@@ -107,6 +136,7 @@ router.get('/', async (req, res) => {
 /**
  * GET /api/articles/:id
  * 获取单篇文章详情（公开接口）
+ * AI 摘要由前端通过流式 API 单独请求
  */
 router.get('/:id', async (req, res) => {
   try {
@@ -132,10 +162,12 @@ router.get('/:id', async (req, res) => {
  * POST /api/articles
  * 创建新文章（需要管理员权限）
  * 请求体: { title, content, tags }
+ * 如果未提供标签，自动调用 AI 生成
  */
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { title, content, tags } = req.body;
+    const { title, content } = req.body;
+    let { tags } = req.body;
     const author = req.user.username;
     
     // 参数校验
@@ -143,17 +175,45 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.error('标题和内容不能为空', 400);
     }
     
+    // 如果没有标签且配置了 AI，自动生成标签
+    if ((!tags || !tags.trim()) && AI_CONFIG.apiKey) {
+      try {
+        tags = await generateTags(title, content);
+        console.log('AI 自动生成标签:', tags);
+      } catch (err) {
+        console.error('AI 生成标签失败:', err.message);
+        tags = '';
+      }
+    }
+    
     const [result] = await pool.execute(
       'INSERT INTO articles (title, content, tags, author) VALUES (?, ?, ?, ?)',
       [title, content, tags || '', author]
     );
     
+    const articleId = result.insertId;
+    
+    // 异步生成向量嵌入（用于语义搜索）
+    if (AI_CONFIG.apiKey) {
+      generateArticleEmbedding(title, content)
+        .then(async (embedding) => {
+          if (embedding) {
+            await pool.execute(
+              'UPDATE articles SET embedding = ? WHERE id = ?',
+              [JSON.stringify(embedding), articleId]
+            );
+          }
+        })
+        .catch(err => console.error('异步生成向量失败:', err.message));
+    }
+    
     res.success({
-      id: result.insertId,
+      id: articleId,
       title,
-      tags,
-      author
-    }, '文章发布成功');
+      tags: tags || '',
+      author,
+      autoTags: !req.body.tags && tags ? true : false
+    }, tags && !req.body.tags ? '文章发布成功，AI 已自动生成标签' : '文章发布成功');
   } catch (error) {
     console.error('创建文章错误:', error);
     res.error('文章发布失败', 500);
@@ -186,10 +246,27 @@ router.put('/:id', authMiddleware, async (req, res) => {
       return res.error('标题和内容不能为空', 400);
     }
     
+    // 内容变化时清空 AI 摘要，让系统重新生成
+    const contentChanged = existing[0].content !== content;
+    
     await pool.execute(
-      'UPDATE articles SET title = ?, content = ?, tags = ? WHERE id = ?',
-      [title, content, tags || '', id]
+      'UPDATE articles SET title = ?, content = ?, tags = ?, ai_summary = ? WHERE id = ?',
+      [title, content, tags || '', contentChanged ? null : existing[0].ai_summary, id]
     );
+    
+    // 异步更新向量嵌入
+    if (AI_CONFIG.apiKey && contentChanged) {
+      generateArticleEmbedding(title, content)
+        .then(async (embedding) => {
+          if (embedding) {
+            await pool.execute(
+              'UPDATE articles SET embedding = ? WHERE id = ?',
+              [JSON.stringify(embedding), id]
+            );
+          }
+        })
+        .catch(err => console.error('异步更新向量失败:', err.message));
+    }
     
     res.success({ id, title, tags }, '文章更新成功');
   } catch (error) {

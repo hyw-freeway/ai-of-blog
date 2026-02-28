@@ -65,11 +65,12 @@ function Home() {
   const [error, setError] = useState(null);
   const [keyword, setKeyword] = useState('');
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchMode, setSearchMode] = useState('keyword');
   const [fileMenu, setFileMenu] = useState({ show: false, file: null, x: 0, y: 0 });
 
   useEffect(() => {
     fetchArticles();
-  }, [searchKeyword]);
+  }, [searchKeyword, searchMode]);
 
   // 点击其他地方关闭文件菜单
   useEffect(() => {
@@ -84,7 +85,8 @@ function Home() {
     try {
       setLoading(true);
       setError(null);
-      const res = await getArticles(searchKeyword);
+      const isSemantic = searchMode === 'semantic' && searchKeyword;
+      const res = await getArticles(searchKeyword, isSemantic);
       if (res.code === 200) {
         setArticles(res.data || []);
       } else {
@@ -105,6 +107,13 @@ function Home() {
   const handleClearSearch = () => {
     setKeyword('');
     setSearchKeyword('');
+  };
+
+  const handleSearchModeChange = (mode) => {
+    setSearchMode(mode);
+    if (searchKeyword) {
+      setSearchKeyword(searchKeyword);
+    }
   };
 
   const formatDate = (dateStr) => {
@@ -252,7 +261,7 @@ function Home() {
           <input
             type="text"
             className="input search-input"
-            placeholder="搜索文章标题或内容..."
+            placeholder={searchMode === 'semantic' ? '智能搜索：输入自然语言描述...' : '搜索文章标题或内容...'}
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
           />
@@ -281,10 +290,37 @@ function Home() {
         )}
       </form>
 
+      {/* 搜索模式切换 */}
+      <div className="search-mode-toggle">
+        <button
+          type="button"
+          className={`search-mode-btn ${searchMode === 'keyword' ? 'active' : ''}`}
+          onClick={() => handleSearchModeChange('keyword')}
+        >
+          关键词搜索
+        </button>
+        <button
+          type="button"
+          className={`search-mode-btn ${searchMode === 'semantic' ? 'active' : ''}`}
+          onClick={() => handleSearchModeChange('semantic')}
+          title="基于语义理解的智能搜索"
+        >
+          <svg className="ai-icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+          智能搜索
+        </button>
+      </div>
+
       {/* 搜索结果提示 */}
       {searchKeyword && !loading && (
         <div className="search-result-info">
-          搜索 "<strong>{searchKeyword}</strong>" 找到 {articles.length} 篇文章
+          {searchMode === 'semantic' ? '智能' : ''}搜索 "<strong>{searchKeyword}</strong>" 找到 {articles.length} 篇文章
+          {searchMode === 'semantic' && articles.length > 0 && (
+            <span className="search-mode-hint">（按语义相关度排序）</span>
+          )}
         </div>
       )}
 
@@ -333,6 +369,9 @@ function Home() {
                     <span className="article-date">{formatDate(article.createTime)}</span>
                     {article.author && (
                       <span className="article-author">· {article.author}</span>
+                    )}
+                    {article.similarity && (
+                      <span className="article-similarity">· 相关度 {article.similarity}%</span>
                     )}
                   </div>
 

@@ -11,6 +11,7 @@ const { testConnection } = require('./config/db');
 const articlesRouter = require('./routes/articles');
 const authRouter = require('./routes/auth');
 const uploadRouter = require('./routes/upload');
+const aiRouter = require('./routes/ai');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,6 +39,7 @@ app.use((req, res, next) => {
 app.use('/api/articles', articlesRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/upload', uploadRouter);
+app.use('/api/ai', aiRouter);
 
 // 根路由 - 健康检查
 app.get('/', (req, res) => {

@@ -2,14 +2,15 @@
  * 文章详情页
  * 展示单篇文章完整内容，支持 Markdown 渲染和 PDF 预览
  */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { marked } from 'marked';
-import { getArticle, deleteArticle, getFileUrl } from '../services/api';
+import { getArticle, deleteArticle, getFileUrl, getSummaryStreamUrl } from '../services/api';
 import { isLoggedIn, getUsername } from '../utils/auth';
 import PdfViewer from '../components/PdfViewer';
 import Modal from '../components/Modal';
 import './ArticleDetail.css';
+import '../components/AIToolbar.css';
 
 // 文件图标 SVG
 const FileIcons = {
@@ -116,6 +117,11 @@ function ArticleDetail() {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false });
   const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '' });
   const [fileMenu, setFileMenu] = useState({ show: false, file: null, x: 0, y: 0 });
+  
+  const [streamingSummary, setStreamingSummary] = useState('');
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [summaryError, setSummaryError] = useState(null);
+  const eventSourceRef = useRef(null);
 
   const loggedIn = isLoggedIn();
   const currentUser = getUsername();
@@ -128,7 +134,71 @@ function ArticleDetail() {
 
   useEffect(() => {
     fetchArticle();
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
   }, [id]);
+
+  const startSummaryStream = (regenerate = false) => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+    
+    setIsGeneratingSummary(true);
+    setStreamingSummary('');
+    setSummaryError(null);
+    
+    const url = getSummaryStreamUrl(id, regenerate);
+    const eventSource = new EventSource(url);
+    eventSourceRef.current = eventSource;
+    
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.error) {
+          setSummaryError(data.error);
+          setIsGeneratingSummary(false);
+          eventSource.close();
+          return;
+        }
+        
+        if (data.cached && data.content) {
+          setStreamingSummary(data.content);
+          setArticle(prev => ({ ...prev, ai_summary: data.content }));
+          setIsGeneratingSummary(false);
+          eventSource.close();
+          return;
+        }
+        
+        if (data.content) {
+          setStreamingSummary(prev => prev + data.content);
+        }
+        
+        if (data.done) {
+          if (data.summary) {
+            setArticle(prev => ({ ...prev, ai_summary: data.summary }));
+          }
+          setIsGeneratingSummary(false);
+          eventSource.close();
+        }
+      } catch (e) {
+        console.error('解析 SSE 数据失败:', e);
+      }
+    };
+    
+    eventSource.onerror = () => {
+      setSummaryError('连接中断，请重试');
+      setIsGeneratingSummary(false);
+      eventSource.close();
+    };
+  };
+
+  const handleRegenerateSummary = () => {
+    startSummaryStream(true);
+  };
 
   // 点击其他地方关闭文件菜单
   useEffect(() => {
@@ -145,6 +215,9 @@ function ArticleDetail() {
       const res = await getArticle(id);
       if (res.code === 200) {
         setArticle(res.data);
+        if (!res.data.ai_summary && res.data.content && res.data.content.length >= 50) {
+          setTimeout(() => startSummaryStream(false), 100);
+        }
       } else {
         setError(res.msg || '文章不存在');
       }
@@ -336,6 +409,53 @@ function ArticleDetail() {
             </div>
           )}
         </header>
+
+        {(article.ai_summary || streamingSummary || isGeneratingSummary) && (
+          <div className="ai-summary-card">
+            <div className="ai-summary-header">
+              <span className="ai-badge">
+                {isGeneratingSummary ? 'AI 生成中...' : 'AI 摘要'}
+              </span>
+              <button 
+                className="ai-regenerate-btn"
+                onClick={handleRegenerateSummary}
+                disabled={isGeneratingSummary}
+                title="重新生成摘要"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <path d="M23 4v6h-6"/>
+                  <path d="M1 20v-6h6"/>
+                  <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                </svg>
+                {isGeneratingSummary ? '' : '重新生成'}
+              </button>
+            </div>
+            {summaryError ? (
+              <p className="ai-summary-error">{summaryError}</p>
+            ) : (
+              <p className={isGeneratingSummary ? 'ai-summary-streaming' : ''}>
+                {streamingSummary || article.ai_summary}
+                {isGeneratingSummary && <span className="typing-cursor">|</span>}
+              </p>
+            )}
+          </div>
+        )}
+        
+        {!article.ai_summary && !streamingSummary && !isGeneratingSummary && article.content?.length >= 50 && (
+          <div className="ai-summary-card ai-summary-empty">
+            <button 
+              className="ai-generate-btn"
+              onClick={() => startSummaryStream(false)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
+              </svg>
+              生成 AI 摘要
+            </button>
+          </div>
+        )}
 
         <div 
           className="article-content markdown-body"

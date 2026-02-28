@@ -1,10 +1,11 @@
 /**
  * 文章编辑页
- * 编辑已发布的文章
+ * 编辑已发布的文章，支持 AI 功能
  */
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import MarkdownEditor from '../components/MarkdownEditor';
+import AIToolbar from '../components/AIToolbar';
 import Modal from '../components/Modal';
 import { getArticle, updateArticle } from '../services/api';
 import { isLoggedIn } from '../utils/auth';
@@ -66,6 +67,20 @@ function Edit() {
       content: value || ''
     }));
     setError('');
+  };
+
+  const handleTagsGenerated = (tags) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags ? `${prev.tags},${tags}` : tags
+    }));
+  };
+
+  const handleContentCorrected = (corrected) => {
+    setFormData(prev => ({
+      ...prev,
+      content: corrected
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -157,6 +172,16 @@ function Edit() {
           </div>
 
           <div className="form-group">
+            <label className="form-label">AI 助手</label>
+            <AIToolbar
+              title={formData.title}
+              content={formData.content}
+              onTagsGenerated={handleTagsGenerated}
+              onContentCorrected={handleContentCorrected}
+            />
+          </div>
+
+          <div className="form-group">
             <label htmlFor="tags" className="form-label">文章标签</label>
             <input
               type="text"
@@ -167,6 +192,7 @@ function Edit() {
               onChange={handleChange}
               placeholder="多个标签用逗号分隔，如：技术,React,前端"
             />
+            <p className="form-hint">可使用上方「AI 生成标签」按钮自动生成</p>
           </div>
 
           <div className="form-actions">
