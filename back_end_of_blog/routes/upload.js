@@ -28,6 +28,15 @@ const generateFileName = (originalName) => {
   return `${timestamp}-${random}${ext}`;
 };
 
+// 修复中文文件名编码
+const decodeFileName = (filename) => {
+  try {
+    return Buffer.from(filename, 'latin1').toString('utf8');
+  } catch (e) {
+    return filename;
+  }
+};
+
 // 图片上传配置
 const imageStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -96,11 +105,12 @@ router.post('/image', authMiddleware, uploadImage.single('image'), (req, res) =>
     }
     
     const imageUrl = `/uploads/images/${req.file.filename}`;
+    const originalName = decodeFileName(req.file.originalname);
     
     res.success({
       url: imageUrl,
       filename: req.file.filename,
-      originalName: req.file.originalname,
+      originalName: originalName,
       size: req.file.size
     }, '图片上传成功');
   } catch (error) {
@@ -120,13 +130,14 @@ router.post('/file', authMiddleware, uploadFile.single('file'), (req, res) => {
     }
     
     const fileUrl = `/uploads/files/${req.file.filename}`;
-    const ext = path.extname(req.file.originalname).toLowerCase();
+    const originalName = decodeFileName(req.file.originalname);
+    const ext = path.extname(originalName).toLowerCase();
     const isPdf = ext === '.pdf';
     
     res.success({
       url: fileUrl,
       filename: req.file.filename,
-      originalName: req.file.originalname,
+      originalName: originalName,
       size: req.file.size,
       type: ext.substring(1),
       isPdf
