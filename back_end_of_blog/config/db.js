@@ -14,7 +14,11 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME || 'blog_db',
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  // TiDB Cloud 需要 SSL 连接
+  ssl: process.env.DB_SSL === 'true' ? {
+    rejectUnauthorized: true
+  } : undefined
 });
 
 // 测试数据库连接
