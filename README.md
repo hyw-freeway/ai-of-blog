@@ -133,7 +133,41 @@ npm run dev
 
 ## 部署指南
 
-### 方案一：免费云服务部署（推荐新手）
+### 当前部署架构
+
+本项目采用免费云服务部署，各组件分工如下：
+
+| 组件 | 服务商 | 说明 |
+|------|--------|------|
+| **数据库** | [TiDB Cloud](https://tidbcloud.com) | MySQL 兼容的云数据库，Serverless 免费版 |
+| **后端 API** | [Render](https://render.com) | Node.js 应用托管，免费版 |
+| **前端** | [Vercel](https://vercel.com) | 静态网站托管，免费版 |
+
+### 自动部署机制
+
+项目已配置 GitHub 集成，代码推送后会**自动部署**：
+
+- **修改后端代码** → 推送到 GitHub → **Render 自动重新部署**（约 2-3 分钟）
+- **修改前端代码** → 推送到 GitHub → **Vercel 自动重新部署**（约 1-2 分钟）
+
+```bash
+# 修改代码后，只需执行：
+git add .
+git commit -m "你的修改说明"
+git push
+
+# Render 和 Vercel 会自动检测到更新并重新部署
+```
+
+### 注意事项
+
+1. **Render 免费版休眠机制**：服务在 15 分钟无访问后会休眠，首次访问需等待约 30 秒唤醒
+2. **TiDB Cloud 需要 SSL 连接**：后端已配置 `DB_SSL=true` 环境变量
+3. **环境变量管理**：敏感信息（数据库密码、JWT 密钥）存储在各平台的环境变量中，不提交到代码仓库
+
+---
+
+### 方案一：免费云服务部署（TiDB + Render + Vercel）
 
 #### 第一步：将代码推送到 GitHub
 
@@ -148,36 +182,40 @@ git remote add origin https://github.com/你的用户名/personBlog.git
 git push -u origin main
 ```
 
-#### 第二步：部署数据库（Railway MySQL）
+#### 第二步：部署数据库（TiDB Cloud）
 
-1. 访问 [railway.app](https://railway.app)，使用 GitHub 登录
-2. 点击 **New Project** → **Provision MySQL**
-3. 点击 MySQL 服务 → **Variables** 标签，复制以下信息：
-   - `MYSQL_HOST`
-   - `MYSQL_PORT`
-   - `MYSQL_USER`
-   - `MYSQL_PASSWORD`
-   - `MYSQL_DATABASE`
-4. 点击 **Query** 标签，粘贴 `database/init.sql` 内容并执行
+1. 访问 [tidbcloud.com](https://tidbcloud.com)，注册并登录
+2. 创建 **Serverless Cluster**（免费）
+3. 选择区域（推荐 Singapore 或 Tokyo）
+4. 设置数据库密码并记住
+5. 创建完成后，使用 **SQL Editor** 执行 `database/init.sql` 初始化数据库
+6. 在 **Connect** 页面获取连接信息：Host、Port、User、Password
 
-#### 第三步：部署后端（Railway）
+#### 第三步：部署后端（Render）
 
-1. 在同一 Railway 项目中，点击 **New** → **GitHub Repo**
-2. 选择你的仓库，设置：
+1. 访问 [render.com](https://render.com)，使用 GitHub 登录
+2. 点击 **New** → **Web Service** → 连接你的仓库
+3. 配置项目：
+   - **Name**: `your-blog-api`
    - **Root Directory**: `back_end_of_blog`
-3. 添加环境变量（Settings → Variables）：
+   - **Runtime**: `Node`
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+   - **Instance Type**: `Free`
+4. 添加环境变量：
    ```
    PORT=3001
-   DB_HOST=（从 MySQL 服务复制）
-   DB_PORT=（从 MySQL 服务复制）
-   DB_USER=（从 MySQL 服务复制）
-   DB_PASSWORD=（从 MySQL 服务复制）
-   DB_NAME=（从 MySQL 服务复制）
-   JWT_SECRET=your-super-secret-key-change-this
+   DB_HOST=（TiDB 提供的 Host）
+   DB_PORT=4000
+   DB_USER=（TiDB 提供的 User）
+   DB_PASSWORD=（你设置的密码）
+   DB_NAME=blog_db
+   DB_SSL=true
+   JWT_SECRET=your-super-secret-key
    JWT_EXPIRES_IN=7d
    ```
-4. 点击 **Settings** → **Networking** → **Generate Domain** 获取后端 URL
-   - 例如：`https://your-app.railway.app`
+5. 点击 **Create Web Service**，等待部署完成
+6. 记录生成的后端 URL，如 `https://your-blog-api.onrender.com`
 
 #### 第四步：部署前端（Vercel）
 
@@ -190,7 +228,7 @@ git push -u origin main
    - **Output Directory**: `dist`
 4. 添加环境变量：
    ```
-   VITE_API_BASE_URL=https://your-app.railway.app（上一步获取的后端 URL）
+   VITE_API_BASE_URL=https://your-blog-api.onrender.com（上一步的后端 URL）
    ```
 5. 点击 **Deploy**
 
