@@ -2,20 +2,34 @@
 
 一个简约高级风格的个人博客，前后端分离架构，支持多端访问。
 
+**当前版本**: v2.0 (AI 增强版)
+
 ## 技术栈
 
-- **前端**: React 19 + Vite + React Router + Axios + React Quill
+- **前端**: React 19 + Vite + React Router + Axios + EasyMDE
 - **后端**: Node.js + Express + JWT
 - **数据库**: MySQL
+- **AI 服务**: DeepSeek / 硅基流动 / 通义千问（可选配置）
 
 ## 项目结构
 
 ```
 personBlog/
-├── front_end_of_blog/     # 前端 React 项目
-├── back_end_of_blog/      # 后端 Node.js 项目
-├── database/              # 数据库脚本
-│   └── init.sql          # 数据库初始化脚本
+├── front_end_of_blog/          # 前端 React 项目
+│   └── src/
+│       ├── components/
+│       │   └── AIToolbar.jsx   # AI 工具组件 (v2.0)
+│       └── pages/
+├── back_end_of_blog/           # 后端 Node.js 项目
+│   ├── config/
+│   │   └── ai.js              # AI 配置 (v2.0)
+│   ├── services/
+│   │   └── aiService.js       # AI 服务层 (v2.0)
+│   └── routes/
+│       └── ai.js              # AI API 路由 (v2.0)
+├── database/
+│   ├── init.sql               # 数据库初始化脚本
+│   └── migrate_ai_fields.sql  # AI 字段迁移脚本 (v2.0)
 └── README.md
 ```
 
@@ -35,10 +49,18 @@ personBlog/
 - AI 语法纠错
 
 ### AI 增强功能 (v2.0 新增)
-- **AI 文章摘要**：自动生成 80-100 字精简摘要，文章详情页展示
-- **AI 标签生成**：一键提取文章关键词，自动生成 3-5 个标签
-- **AI 语法纠错**：检测并修正中文错别字和语法问题
-- **智能语义搜索**：基于向量嵌入的语义搜索，支持自然语言查询
+
+| 功能 | 说明 | 触发方式 |
+|------|------|----------|
+| **AI 文章摘要** | 自动生成 80-100 字精简摘要 | 首次打开文章时流式生成，支持重新生成 |
+| **AI 标签生成** | 提取 3-5 个关键词标签 | 发布时自动生成（若未填写），或手动点击按钮预览 |
+| **AI 语法纠错** | 修正中文错别字和语法问题 | 编辑页面点击「AI 纠错」按钮 |
+| **智能语义搜索** | 基于向量嵌入的语义匹配 | 首页切换到「智能搜索」模式 |
+
+**特色功能**：
+- 摘要生成支持**流式输出**，实时显示 AI 生成过程
+- 发布文章时若**未填写标签**，AI 会自动生成
+- 语义搜索可匹配意思相近的文章（如搜「性能优化」匹配「缓存技巧」）
 
 ## 快速开始
 
@@ -132,18 +154,28 @@ npm run dev
 
 ## API 接口
 
+### 基础接口
+
 | 接口 | 方法 | 功能 | 权限 |
 |------|------|------|------|
 | `/api/articles` | GET | 获取文章列表 | 公开 |
 | `/api/articles?semantic=true&keyword=xxx` | GET | 语义搜索 | 公开 |
 | `/api/articles/:id` | GET | 获取文章详情 | 公开 |
 | `/api/auth/login` | POST | 管理员登录 | 公开 |
-| `/api/articles` | POST | 发布文章 | 需登录 |
+| `/api/articles` | POST | 发布文章（自动生成标签） | 需登录 |
 | `/api/articles/:id` | PUT | 编辑文章 | 需登录 |
 | `/api/articles/:id` | DELETE | 删除文章 | 需登录 |
+
+### AI 接口 (v2.0)
+
+| 接口 | 方法 | 功能 | 权限 |
+|------|------|------|------|
 | `/api/ai/summary` | POST | 生成文章摘要 | 公开 |
+| `/api/ai/summary/stream/:articleId` | GET | 流式生成摘要 (SSE) | 公开 |
+| `/api/ai/summary/stream/:articleId?regenerate=true` | GET | 重新生成摘要 | 公开 |
 | `/api/ai/tags` | POST | 生成文章标签 | 需登录 |
 | `/api/ai/proofread` | POST | 语法纠错 | 需登录 |
+| `/api/ai/embedding` | POST | 生成文章向量 | 需登录 |
 
 ## AI 功能配置
 
@@ -450,6 +482,30 @@ sudo certbot --nginx -d your-domain.com
 2. 配置 HTTPS
 3. 设置更复杂的 JWT 密钥
 4. 配置跨域白名单
+
+## 版本历史
+
+### v2.0 - AI 增强版 (2025-02)
+
+**新增功能：**
+- ✨ AI 文章摘要：流式生成，支持重新生成
+- ✨ AI 标签生成：发布时自动生成，或手动预览
+- ✨ AI 语法纠错：一键修正错别字和语法问题
+- ✨ 智能语义搜索：基于向量嵌入的相似度匹配
+
+**技术更新：**
+- 新增 AI 服务层 (`aiService.js`)
+- 支持 DeepSeek / 硅基流动 / 通义千问 多种 AI 提供商
+- SSE 流式响应支持
+- 向量嵌入存储与检索
+
+### v1.0 - 基础版
+
+- 文章 CRUD 功能
+- 管理员登录认证
+- Markdown 编辑器
+- 图片/文件上传
+- 响应式布局
 
 ## License
 
