@@ -25,28 +25,55 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
+          script_stop: true
           script: |
+            set -e
+
             echo "========== 开始部署 =========="
             echo "时间: $(date '+%Y-%m-%d %H:%M:%S')"
             
             cd /var/www/ai-of-blog
             
-            # 拉取最新代码
+            # 拉取最新代码（失败则直接退出）
             echo ">>> 拉取最新代码..."
-            git fetch origin main
+            if ! git fetch origin main; then
+              echo "❌ git fetch 失败，无法连接到 GitHub，请检查服务器到 github.com:443 的网络"
+              exit 1
+            fi
             git reset --hard origin/main
+            
+            # 尝试自动探测 node / npm / pm2 路径
+            echo ">>> 检查 Node / npm / pm2..."
+            NODE_BIN="$(command -v node || true)"
+            NPM_BIN="$(command -v npm || true)"
+            PM2_BIN="$(command -v pm2 || true)"
+
+            if [ -z "$NODE_BIN" ] || [ -z "$NPM_BIN" ]; then
+              echo "❌ 未找到 node 或 npm，请在服务器上确认 Node.js 已正确安装并在 PATH 中可用"
+              echo "   可以在服务器上手动运行 'which node' 和 'which npm' 来排查"
+              exit 1
+            fi
+
+            if [ -z "$PM2_BIN" ]; then
+              echo "❌ 未找到 pm2，请在服务器上执行 'npm install -g pm2' 并确保 pm2 在 PATH 中"
+              exit 1
+            fi
+
+            echo "   使用的 node: $NODE_BIN"
+            echo "   使用的 npm:  $NPM_BIN"
+            echo "   使用的 pm2:  $PM2_BIN"
             
             # 后端部署
             echo ">>> 部署后端..."
             cd back_end_of_blog
-            npm install --production
-            pm2 restart blog-api || pm2 start app.js --name blog-api
+            "$NPM_BIN" install --production
+            "$PM2_BIN" restart blog-api || "$PM2_BIN" start app.js --name blog-api
             
             # 前端部署
             echo ">>> 部署前端..."
             cd ../front_end_of_blog
-            npm install
-            npm run build
+            "$NPM_BIN" install
+            "$NPM_BIN" run build
             
             echo "========== 部署完成 =========="
             echo "时间: $(date '+%Y-%m-%d %H:%M:%S')"
