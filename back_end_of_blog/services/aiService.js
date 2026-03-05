@@ -128,6 +128,37 @@ async function proofread(content) {
 }
 
 /**
+ * 生成文章常见问题(FAQ)
+ */
+async function generateFAQ(title, content) {
+  if (!content || content.trim().length < 100) {
+    return null;
+  }
+
+  const truncatedContent = content.substring(0, 3000);
+  const prompt = PROMPTS.faq
+    .replace('{title}', title || '无标题')
+    .replace('{content}', truncatedContent);
+  
+  const response = await callAI([
+    { role: 'user', content: prompt }
+  ], { maxTokens: 1000, temperature: 0.7 });
+
+  const result = response.choices[0].message.content.trim();
+  
+  try {
+    const jsonMatch = result.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    return JSON.parse(result);
+  } catch (e) {
+    console.error('FAQ JSON 解析失败:', e.message, result);
+    return null;
+  }
+}
+
+/**
  * 获取文本的向量嵌入
  */
 async function getEmbedding(text) {
@@ -231,6 +262,7 @@ module.exports = {
   generateSummary,
   generateTags,
   proofread,
+  generateFAQ,
   getEmbedding,
   cosineSimilarity,
   semanticSearch,

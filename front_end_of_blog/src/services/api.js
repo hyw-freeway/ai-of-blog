@@ -120,4 +120,10 @@ export const proofreadContent = (content) =>
 export const generateEmbedding = (title, content) => 
   api.post('/api/ai/embedding', { title, content });
 
+// 获取文章常见问题(FAQ)
+export const getArticleFAQ = (articleId, regenerate = false) => {
+  const params = regenerate ? { regenerate: 'true' } : {};
+  return api.get(`/api/ai/faq/${articleId}`, { params });
+};
+
 export default api;

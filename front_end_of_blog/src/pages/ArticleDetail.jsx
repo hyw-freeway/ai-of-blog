@@ -10,6 +10,7 @@ import { getArticle, deleteArticle, getFileUrl, getSummaryStreamUrl } from '../s
 import { isLoggedIn, getUsername } from '../utils/auth';
 import PdfViewer from '../components/PdfViewer';
 import Modal from '../components/Modal';
+import ArticleFAQ from '../components/ArticleFAQ';
 import './ArticleDetail.css';
 import '../components/AIToolbar.css';
 
@@ -606,6 +607,9 @@ function ArticleDetail() {
 
         {/* 附件列表 */}
         {renderFileList(article.content)}
+
+        {/* 文章 FAQ */}
+        <ArticleFAQ articleId={id} />
 
         {canEdit && (
           <div className="detail-actions">

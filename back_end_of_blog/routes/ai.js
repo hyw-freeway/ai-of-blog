@@ -11,6 +11,7 @@ const {
   generateSummary, 
   generateTags, 
   proofread,
+  generateFAQ,
   generateArticleEmbedding,
   callAIStream
 } = require('../services/aiService');
@@ -195,6 +196,63 @@ router.post('/embedding', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('生成向量错误:', error);
     res.error(error.message || '向量生成失败', 500);
+  }
+});
+
+/**
+ * GET /api/ai/faq/:articleId
+ * 获取文章的常见问题（公开接口，带缓存）
+ * 查询参数: regenerate=true 强制重新生成
+ */
+router.get('/faq/:articleId', async (req, res) => {
+  try {
+    const { articleId } = req.params;
+    const { regenerate } = req.query;
+    
+    const [rows] = await pool.execute(
+      'SELECT id, title, content, ai_faq FROM articles WHERE id = ?',
+      [articleId]
+    );
+    
+    if (rows.length === 0) {
+      return res.error('文章不存在', 404);
+    }
+    
+    const article = rows[0];
+    
+    if (article.ai_faq && regenerate !== 'true') {
+      let faqData = article.ai_faq;
+      if (typeof faqData === 'string') {
+        try {
+          faqData = JSON.parse(faqData);
+        } catch (e) {
+          faqData = null;
+        }
+      }
+      if (faqData && Array.isArray(faqData)) {
+        return res.success({ faq: faqData, cached: true }, '获取FAQ成功');
+      }
+    }
+    
+    if (!article.content || article.content.trim().length < 100) {
+      return res.error('文章内容太短，无法生成FAQ', 400);
+    }
+    
+    const faq = await generateFAQ(article.title, article.content);
+    
+    if (!faq || !Array.isArray(faq)) {
+      return res.error('FAQ生成失败', 500);
+    }
+    
+    await pool.execute(
+      'UPDATE articles SET ai_faq = ? WHERE id = ?',
+      [JSON.stringify(faq), articleId]
+    );
+    
+    res.success({ faq, cached: false }, 'FAQ生成成功');
+  } catch (error) {
+    console.error('获取FAQ错误:', error);
+    res.error(error.message || 'FAQ获取失败', 500);
   }
 });
 
