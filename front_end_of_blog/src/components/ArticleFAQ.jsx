@@ -32,32 +32,34 @@ function ArticleFAQ({ articleId }) {
     fetchFAQ();
   }, [articleId]);
 
-  if (loading) {
-    return (
-      <div className="article-faq">
-        <div className="article-faq-header">
-          <h3 className="article-faq-title">常见问题</h3>
-          <span className="article-faq-badge">AI 生成</span>
-        </div>
-        <div className="article-faq-loading">
-          <div className="faq-loading-spinner"></div>
-          <span>正在生成常见问题...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !faq || faq.length === 0) {
-    return null;
-  }
-
   return (
     <div className="article-faq">
+      {/* 调试标记：用于确认前端是否为最新版本 */}
+      <div style={{ marginBottom: 8, color: '#999', fontSize: 12 }}>
+        FAQ 调试版（如果线上看不到这行字说明前端还没更新）
+      </div>
+
       <div className="article-faq-header">
         <h3 className="article-faq-title">常见问题</h3>
         <span className="article-faq-badge">AI 生成</span>
       </div>
-      <Accordion items={faq} />
+
+      {loading && (
+        <div className="article-faq-loading">
+          <div className="faq-loading-spinner"></div>
+          <span>正在生成常见问题...</span>
+        </div>
+      )}
+
+      {!loading && !error && faq && faq.length > 0 && (
+        <Accordion items={faq} />
+      )}
+
+      {!loading && (error || !faq || faq.length === 0) && (
+        <div style={{ marginTop: 8, fontSize: 12, color: '#bbb' }}>
+          暂无可用常见问题
+        </div>
+      )}
     </div>
   );
 }
