@@ -15,9 +15,11 @@ function ArticleFAQ({ articleId }) {
       setLoading(true);
       setError(null);
       try {
-        const response = await getArticleFAQ(articleId);
-        if (response.data.code === 200 && response.data.data?.faq) {
-          setFaq(response.data.data.faq);
+        const res = await getArticleFAQ(articleId);
+        if (res.code === 200 && res.data?.faq) {
+          setFaq(res.data.faq);
+        } else {
+          setFaq(null);
         }
       } catch (err) {
         console.error('获取FAQ失败:', err);
