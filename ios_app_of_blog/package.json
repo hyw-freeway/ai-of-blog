@@ -1,0 +1,27 @@
+{
+  "name": "ios-app-of-blog",
+  "version": "1.0.0",
+  "description": "个人博客 iOS 客户端 (uni-app)",
+  "scripts": {
+    "dev:app": "uni -p app",
+    "dev:h5": "uni",
+    "build:app": "uni build -p app",
+    "build:h5": "uni build"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "3.0.0-5000420260318001",
+    "@dcloudio/uni-app-plus": "3.0.0-5000420260318001",
+    "@dcloudio/uni-components": "3.0.0-5000420260318001",
+    "@dcloudio/uni-h5": "3.0.0-5000420260318001",
+    "vue": "^3.4.21",
+    "marked": "^9.0.0"
+  },
+  "devDependencies": {
+    "@dcloudio/types": "^3.4.8",
+    "@dcloudio/uni-cli-shared": "3.0.0-5000420260318001",
+    "@dcloudio/uni-stacktracey": "3.0.0-5000420260318001",
+    "@dcloudio/vite-plugin-uni": "3.0.0-5000420260318001",
+    "@vue/runtime-core": "^3.4.21",
+    "vite": "5.2.8"
+  }
+}

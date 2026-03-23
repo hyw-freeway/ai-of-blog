@@ -1,0 +1,41 @@
+{
+  "name": "个人博客",
+  "appid": "__UNI__BLOG_IOS",
+  "description": "AI 驱动的个人博客 iOS 客户端",
+  "versionName": "1.0.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "app-plus": {
+    "usingComponents": true,
+    "nvueStyleCompiler": "uni-app",
+    "compilerVersion": 3,
+    "splashscreen": {
+      "alwaysShowBeforeRender": true,
+      "waiting": true,
+      "autoclose": true,
+      "delay": 0
+    },
+    "modules": {},
+    "distribute": {
+      "android": {},
+      "ios": {
+        "dSYMs": false
+      },
+      "sdkConfigs": {}
+    }
+  },
+  "uniStatistics": {
+    "enable": false
+  },
+  "vueVersion": "3",
+  "h5": {
+    "devServer": {
+      "proxy": {
+        "/api": {
+          "target": "http://localhost:3001",
+          "changeOrigin": true
+        }
+      }
+    }
+  }
+}
