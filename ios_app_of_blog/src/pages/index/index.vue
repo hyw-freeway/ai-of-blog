@@ -134,6 +134,30 @@
     <view class="footer">
       <text class="footer-text">© {{ currentYear }} 个人博客. All rights reserved.</text>
     </view>
+
+    <!-- 内嵌浏览器覆盖层（v-show 保持 iframe 存活，登录状态不丢失） -->
+    <view class="webview-overlay" v-show="showWebview">
+      <view class="webview-header" :style="{ paddingTop: statusBarHeight + 'px' }">
+        <view class="webview-header-inner">
+          <view class="webview-back" @click="showWebview = false">
+            <text class="webview-back-text">← 返回博客</text>
+          </view>
+          <text class="webview-title">哔哩哔哩</text>
+          <view class="webview-back" style="visibility: hidden;">
+            <text class="webview-back-text">占位</text>
+          </view>
+        </view>
+      </view>
+      <view class="webview-body" :style="{ top: (statusBarHeight + 44) + 'px' }">
+        <iframe
+          v-if="webviewLoaded"
+          :src="webviewUrl"
+          class="webview-iframe"
+          allow="autoplay; fullscreen"
+          referrerpolicy="no-referrer"
+        />
+      </view>
+    </view>
   </view>
 </template>
 
@@ -158,7 +182,10 @@ export default {
       currentYear: new Date().getFullYear(),
       statusBarHeight: 20,
       showDropdown: false,
-      showLogoutModal: false
+      showLogoutModal: false,
+      showWebview: false,
+      webviewLoaded: false,
+      webviewUrl: 'https://www.bilibili.com/'
     }
   },
   onShow() {
@@ -187,9 +214,10 @@ export default {
     },
     onModalClose() {
       this.showLogoutModal = false
-      uni.navigateTo({
-        url: `/pages/webview/index?url=${encodeURIComponent('https://www.bilibili.com/')}&title=${encodeURIComponent('哔哩哔哩')}`
-      })
+      if (!this.webviewLoaded) {
+        this.webviewLoaded = true
+      }
+      this.showWebview = true
     },
     doLogout() {
       this.showLogoutModal = false
@@ -659,5 +687,62 @@ export default {
 .footer-text {
   font-size: 22rpx;
   color: #999;
+}
+
+/* ========== WebView 覆盖层 ========== */
+.webview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background-color: #ffffff;
+}
+
+.webview-header {
+  background-color: #ffffff;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.webview-header-inner {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24rpx;
+}
+
+.webview-back {
+  padding: 8rpx 16rpx;
+}
+
+.webview-back:active {
+  opacity: 0.6;
+}
+
+.webview-back-text {
+  font-size: 28rpx;
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.webview-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.webview-body {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.webview-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
 }
 </style>

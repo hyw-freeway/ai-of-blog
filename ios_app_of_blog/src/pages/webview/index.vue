@@ -8,7 +8,7 @@
 export default {
   data() {
     return {
-      url: 'https://www.bilibili.com/'
+      url: 'https://i.finka.cn/hd/app/login?source_channel=OFFICIAL_WEBSITE#/home'
     }
   },
   onLoad(options) {
