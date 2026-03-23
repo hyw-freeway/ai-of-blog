@@ -1,11 +1,6 @@
 import { getToken, clearAuth } from '../utils/auth'
 
-// #ifdef H5
-const BASE_URL = ''
-// #endif
-// #ifndef H5
-const BASE_URL = 'http://localhost:3001'
-// #endif
+const BASE_URL = 'http://106.55.56.92'
 
 function request(options) {
   return new Promise((resolve, reject) => {
