@@ -185,7 +185,7 @@ export default {
       showLogoutModal: false,
       showWebview: false,
       webviewLoaded: false,
-      webviewUrl: 'https://www.bilibili.com/'
+      webviewUrl: 'https://i.finka.cn/hd/app/login?source_channel=OFFICIAL_WEBSITE#/home'
     }
   },
   onShow() {
