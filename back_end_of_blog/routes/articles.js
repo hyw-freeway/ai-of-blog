@@ -65,25 +65,45 @@ function cleanSummary(content) {
 
 /**
  * GET /api/articles
- * 获取所有文章列表（公开接口）
- * 支持搜索：?keyword=xxx 模糊搜索标题和内容
- * 支持语义搜索：?semantic=true&keyword=xxx
- * 返回文章列表，包含图片和文件信息
+ * 获取文章列表（公开接口），支持分页
+ * 查询参数：
+ *   - keyword:  模糊搜索标题和内容
+ *   - semantic: 'true' 启用语义搜索
+ *   - page:     页码，从 1 开始（默认 1）
+ *   - pageSize: 每页条数（默认 10，最大 100）
+ * 返回：{ list, total, page, pageSize, totalPages }
  */
 router.get('/', async (req, res) => {
   try {
     const { keyword, semantic } = req.query;
-    
-    // 语义搜索模式
+
+    // 解析分页参数
+    let page = parseInt(req.query.page, 10);
+    let pageSize = parseInt(req.query.pageSize, 10);
+    if (!Number.isFinite(page) || page < 1) page = 1;
+    if (!Number.isFinite(pageSize) || pageSize < 1) pageSize = 10;
+    if (pageSize > 100) pageSize = 100;
+    const offset = (page - 1) * pageSize;
+
+    const buildPager = (total) => ({
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize))
+    });
+
+    // 语义搜索模式（先全量计算相似度，再在内存中分页）
     if (semantic === 'true' && keyword && keyword.trim() && AI_CONFIG.apiKey) {
       try {
         const [allRows] = await pool.execute(
           `SELECT id, title, tags, createTime, author, content, ai_summary, embedding FROM articles`
         );
-        
+
         const searchResults = await semanticSearch(keyword.trim(), allRows);
-        
-        const articles = searchResults.map(article => ({
+        const total = searchResults.length;
+        const pageItems = searchResults.slice(offset, offset + pageSize);
+
+        const list = pageItems.map(article => ({
           id: article.id,
           title: article.title,
           tags: article.tags,
@@ -94,28 +114,38 @@ router.get('/', async (req, res) => {
           files: extractFiles(article.content).slice(0, 5),
           similarity: Math.round(article.similarity * 100)
         }));
-        
-        return res.success(articles, '语义搜索成功');
+
+        return res.success({ list, ...buildPager(total) }, '语义搜索成功');
       } catch (err) {
         console.error('语义搜索失败，回退到关键词搜索:', err.message);
       }
     }
-    
-    // 常规关键词搜索
-    let sql = `SELECT id, title, tags, createTime, author, content, ai_summary FROM articles`;
-    let params = [];
-    
+
+    // 常规关键词搜索 / 全量列表（数据库层分页）
+    let whereSql = '';
+    let whereParams = [];
+
     if (keyword && keyword.trim()) {
       const searchTerm = `%${keyword.trim()}%`;
-      sql += ` WHERE title LIKE ? OR content LIKE ?`;
-      params = [searchTerm, searchTerm];
+      whereSql = ' WHERE title LIKE ? OR content LIKE ?';
+      whereParams = [searchTerm, searchTerm];
     }
-    
-    sql += ` ORDER BY createTime DESC`;
-    
-    const [rows] = await pool.execute(sql, params);
-    
-    const articles = rows.map(article => ({
+
+    // 先查询总数
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM articles${whereSql}`,
+      whereParams
+    );
+    const total = countRows[0]?.total || 0;
+
+    // mysql2 对 LIMIT/OFFSET 占位符兼容性差，这里直接拼接安全的整数值
+    const listSql =
+      `SELECT id, title, tags, createTime, author, content, ai_summary FROM articles${whereSql}` +
+      ` ORDER BY createTime DESC LIMIT ${pageSize} OFFSET ${offset}`;
+
+    const [rows] = await pool.execute(listSql, whereParams);
+
+    const list = rows.map(article => ({
       id: article.id,
       title: article.title,
       tags: article.tags,
@@ -125,8 +155,11 @@ router.get('/', async (req, res) => {
       images: extractImages(article.content).slice(0, 4),
       files: extractFiles(article.content).slice(0, 5)
     }));
-    
-    res.success(articles, keyword ? '搜索成功' : '获取文章列表成功');
+
+    res.success(
+      { list, ...buildPager(total) },
+      keyword ? '搜索成功' : '获取文章列表成功'
+    );
   } catch (error) {
     console.error('获取文章列表错误:', error);
     res.error('获取文章列表失败', 500);

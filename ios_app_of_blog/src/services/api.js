@@ -34,11 +34,13 @@ function request(options) {
 
 // ========== 文章相关 ==========
 
-export function getArticles(keyword = '', semantic = false) {
+export function getArticles(keyword = '', semantic = false, page = 1, pageSize = 10) {
   const params = []
   if (keyword) params.push(`keyword=${encodeURIComponent(keyword)}`)
   if (semantic) params.push('semantic=true')
-  const qs = params.length > 0 ? `?${params.join('&')}` : ''
+  params.push(`page=${page}`)
+  params.push(`pageSize=${pageSize}`)
+  const qs = `?${params.join('&')}`
   return request({ url: `/api/articles${qs}` })
 }
 

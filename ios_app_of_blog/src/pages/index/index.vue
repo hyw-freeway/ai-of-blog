@@ -99,7 +99,7 @@
     </view>
 
     <!-- 文章列表 -->
-    <view class="article-list" v-if="!loading && articles.length > 0">
+    <view class="article-list" v-if="articles.length > 0">
       <ArticleCard
         v-for="article in articles"
         :key="article.id"
@@ -107,6 +107,19 @@
         :keyword="searchApplied ? searchKeyword : ''"
         :showSimilarity="semanticMode"
       />
+    </view>
+
+    <!-- 加载更多 / 已到底 -->
+    <view class="load-more" v-if="!loading && !error && articles.length > 0">
+      <view
+        v-if="page < totalPages"
+        class="load-more-btn"
+        :class="{ disabled: loadingMore }"
+        @click="loadMore"
+      >
+        <text class="load-more-text">{{ loadingMore ? '加载中...' : '加载更多' }}</text>
+      </view>
+      <text v-else class="load-more-end">— 已加载全部 {{ total }} 篇文章 —</text>
     </view>
 
     <!-- 空状态 -->
@@ -176,7 +189,12 @@ export default {
       searchApplied: false,
       semanticMode: false,
       loading: false,
+      loadingMore: false,
       error: null,
+      page: 1,
+      pageSize: 10,
+      total: 0,
+      totalPages: 1,
       loggedIn: false,
       username: '',
       currentYear: new Date().getFullYear(),
@@ -198,7 +216,12 @@ export default {
     this.statusBarHeight = sysInfo.statusBarHeight || 20
   },
   onPullDownRefresh() {
-    this.fetchArticles().then(() => uni.stopPullDownRefresh())
+    this.fetchArticles(true).then(() => uni.stopPullDownRefresh())
+  },
+  onReachBottom() {
+    if (!this.loading && !this.loadingMore && this.page < this.totalPages) {
+      this.loadMore()
+    }
   },
   methods: {
     onIconClick() {
@@ -226,13 +249,29 @@ export default {
       this.username = ''
       uni.showToast({ title: '已退出登录', icon: 'none' })
     },
-    async fetchArticles() {
-      this.loading = true
+    async fetchArticles(reset = true) {
+      if (reset) {
+        this.page = 1
+        this.loading = true
+      } else {
+        this.loadingMore = true
+      }
       this.error = null
       try {
-        const res = await getArticles(this.keyword, this.semanticMode)
+        const res = await getArticles(this.keyword, this.semanticMode, this.page, this.pageSize)
         if (res.code === 200) {
-          this.articles = res.data || []
+          const data = res.data || {}
+          // 兼容旧接口直接返回数组的情况
+          if (Array.isArray(data)) {
+            this.articles = data
+            this.total = data.length
+            this.totalPages = 1
+          } else {
+            const list = data.list || []
+            this.articles = reset ? list : [...this.articles, ...list]
+            this.total = data.total || 0
+            this.totalPages = data.totalPages || 1
+          }
         } else {
           this.error = res.msg || '加载失败'
         }
@@ -240,19 +279,25 @@ export default {
         this.error = '网络错误，请稍后重试'
       } finally {
         this.loading = false
+        this.loadingMore = false
       }
+    },
+    async loadMore() {
+      if (this.loadingMore || this.page >= this.totalPages) return
+      this.page += 1
+      await this.fetchArticles(false)
     },
     onSearch() {
       this.searchKeyword = this.keyword
       this.searchApplied = !!this.keyword.trim()
-      this.fetchArticles()
+      this.fetchArticles(true)
     },
     clearSearch() {
       this.keyword = ''
       this.searchKeyword = ''
       this.searchApplied = false
       this.semanticMode = false
-      this.fetchArticles()
+      this.fetchArticles(true)
     },
     goPublish() {
       uni.navigateTo({ url: '/pages/publish/index' })
@@ -663,6 +708,39 @@ export default {
   font-size: 26rpx;
   color: #ffffff;
   font-weight: 500;
+}
+
+.load-more {
+  padding: 24rpx 0 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.load-more-btn {
+  padding: 18rpx 56rpx;
+  background-color: #ffffff;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 40rpx;
+}
+
+.load-more-btn:active {
+  background-color: #f3f4f6;
+}
+
+.load-more-btn.disabled {
+  opacity: 0.6;
+}
+
+.load-more-text {
+  font-size: 26rpx;
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.load-more-end {
+  font-size: 24rpx;
+  color: #999;
 }
 
 .loading {

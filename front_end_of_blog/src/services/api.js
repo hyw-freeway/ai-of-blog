@@ -40,9 +40,9 @@ api.interceptors.response.use(
 
 // ========== 文章相关 API ==========
 
-// 获取文章列表（支持搜索和语义搜索）
-export const getArticles = (keyword = '', semantic = false) => {
-  const params = {};
+// 获取文章列表（支持搜索、语义搜索与分页）
+export const getArticles = (keyword = '', semantic = false, page = 1, pageSize = 10) => {
+  const params = { page, pageSize };
   if (keyword) params.keyword = keyword;
   if (semantic) params.semantic = 'true';
   return api.get('/api/articles', { params });

@@ -58,6 +58,8 @@ const getFileIcon = (filename) => {
   return FileIcons.default;
 };
 
+const PAGE_SIZE = 10;
+
 function Home() {
   const navigate = useNavigate();
   const [articles, setArticles] = useState([]);
@@ -67,9 +69,17 @@ function Home() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchMode, setSearchMode] = useState('keyword');
   const [fileMenu, setFileMenu] = useState({ show: false, file: null, x: 0, y: 0 });
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     fetchArticles();
+  }, [searchKeyword, searchMode, page]);
+
+  // 切换搜索关键词或搜索模式时重置到第 1 页
+  useEffect(() => {
+    setPage(1);
   }, [searchKeyword, searchMode]);
 
   // 点击其他地方关闭文件菜单
@@ -86,9 +96,19 @@ function Home() {
       setLoading(true);
       setError(null);
       const isSemantic = searchMode === 'semantic' && searchKeyword;
-      const res = await getArticles(searchKeyword, isSemantic);
+      const res = await getArticles(searchKeyword, isSemantic, page, PAGE_SIZE);
       if (res.code === 200) {
-        setArticles(res.data || []);
+        const data = res.data || {};
+        // 兼容旧接口直接返回数组的情况
+        if (Array.isArray(data)) {
+          setArticles(data);
+          setTotal(data.length);
+          setTotalPages(1);
+        } else {
+          setArticles(data.list || []);
+          setTotal(data.total || 0);
+          setTotalPages(data.totalPages || 1);
+        }
       } else {
         setError(res.msg || '获取文章失败');
       }
@@ -97,6 +117,29 @@ function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 计算分页器要展示的页码（含省略号），最多展示 7 个按钮
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+      return pages;
+    }
+    pages.push(1);
+    if (page > 4) pages.push('...');
+    const start = Math.max(2, page - 2);
+    const end = Math.min(totalPages - 1, page + 2);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (page < totalPages - 3) pages.push('...');
+    pages.push(totalPages);
+    return pages;
+  };
+
+  const handlePageChange = (target) => {
+    if (target < 1 || target > totalPages || target === page) return;
+    setPage(target);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSearch = (e) => {
@@ -317,8 +360,8 @@ function Home() {
       {/* 搜索结果提示 */}
       {searchKeyword && !loading && (
         <div className="search-result-info">
-          {searchMode === 'semantic' ? '智能' : ''}搜索 "<strong>{searchKeyword}</strong>" 找到 {articles.length} 篇文章
-          {searchMode === 'semantic' && articles.length > 0 && (
+          {searchMode === 'semantic' ? '智能' : ''}搜索 "<strong>{searchKeyword}</strong>" 找到 {total} 篇文章
+          {searchMode === 'semantic' && total > 0 && (
             <span className="search-mode-hint">（按语义相关度排序）</span>
           )}
         </div>
@@ -402,6 +445,48 @@ function Home() {
             );
           })}
         </div>
+      )}
+
+      {/* 分页器 */}
+      {!loading && !error && total > 0 && totalPages > 1 && (
+        <nav className="pagination" aria-label="文章分页">
+          <button
+            type="button"
+            className="pagination-btn"
+            onClick={() => handlePageChange(page - 1)}
+            disabled={page <= 1}
+          >
+            上一页
+          </button>
+
+          {getPageNumbers().map((p, idx) =>
+            p === '...' ? (
+              <span key={`ellipsis-${idx}`} className="pagination-ellipsis">…</span>
+            ) : (
+              <button
+                key={p}
+                type="button"
+                className={`pagination-btn pagination-page ${p === page ? 'active' : ''}`}
+                onClick={() => handlePageChange(p)}
+              >
+                {p}
+              </button>
+            )
+          )}
+
+          <button
+            type="button"
+            className="pagination-btn"
+            onClick={() => handlePageChange(page + 1)}
+            disabled={page >= totalPages}
+          >
+            下一页
+          </button>
+
+          <span className="pagination-info">
+            第 {page} / {totalPages} 页 · 共 {total} 篇
+          </span>
+        </nav>
       )}
 
       {/* 文件操作菜单 */}
