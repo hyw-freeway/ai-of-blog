@@ -6,8 +6,9 @@ import axios from 'axios';
 import { getToken, clearAuth } from '../utils/auth';
 
 // 创建 axios 实例
+// 注意：使用 ?? 而非 ||，避免空字符串（生产环境用相对路径）被误判为 falsy
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001',
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
@@ -82,7 +83,7 @@ export const uploadFile = (file) => {
 
 // 获取完整的文件 URL
 export const getFileUrl = (path) => {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+  const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
   return `${baseUrl}${path}`;
 };
 
@@ -103,7 +104,7 @@ export const generateSummary = (content) =>
 
 // 获取流式摘要 SSE URL
 export const getSummaryStreamUrl = (articleId, regenerate = false) => {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+  const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
   const url = `${baseUrl}/api/ai/summary/stream/${articleId}`;
   return regenerate ? `${url}?regenerate=true` : url;
 };
