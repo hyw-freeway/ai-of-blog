@@ -4,7 +4,7 @@
  */
 const express = require('express');
 const router = express.Router();
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
 const { pool } = require('../config/db');
 const { AI_CONFIG, PROMPTS } = require('../config/ai');
 const { 
@@ -204,21 +204,26 @@ router.post('/embedding', authMiddleware, async (req, res) => {
  * 获取文章的常见问题（公开接口，带缓存）
  * 查询参数: regenerate=true 强制重新生成
  */
-router.get('/faq/:articleId', async (req, res) => {
+router.get('/faq/:articleId', optionalAuthMiddleware, async (req, res) => {
   try {
     const { articleId } = req.params;
     const { regenerate } = req.query;
-    
+
     const [rows] = await pool.execute(
-      'SELECT id, title, content, ai_faq FROM articles WHERE id = ?',
+      'SELECT id, title, content, ai_faq, visible_to_guest FROM articles WHERE id = ?',
       [articleId]
     );
-    
+
     if (rows.length === 0) {
       return res.error('文章不存在', 404);
     }
-    
+
     const article = rows[0];
+
+    // 访客无权访问私密文章的 FAQ
+    if (!req.user && article.visible_to_guest !== 1) {
+      return res.error('该文章仅管理员可见', 403);
+    }
     
     if (article.ai_faq && regenerate !== 'true') {
       let faqData = article.ai_faq;

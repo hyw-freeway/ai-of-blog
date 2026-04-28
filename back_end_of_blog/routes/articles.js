@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
 const { semanticSearch, generateArticleEmbedding, generateTags } = require('../services/aiService');
 const { AI_CONFIG } = require('../config/ai');
 
@@ -73,9 +73,11 @@ function cleanSummary(content) {
  *   - pageSize: 每页条数（默认 10，最大 100）
  * 返回：{ list, total, page, pageSize, totalPages }
  */
-router.get('/', async (req, res) => {
+router.get('/', optionalAuthMiddleware, async (req, res) => {
   try {
     const { keyword, semantic } = req.query;
+    // 是否为已登录的管理员（管理员可看全部，访客仅能看 visible_to_guest = 1）
+    const isAdmin = !!req.user;
 
     // 解析分页参数
     let page = parseInt(req.query.page, 10);
@@ -95,8 +97,9 @@ router.get('/', async (req, res) => {
     // 语义搜索模式（先全量计算相似度，再在内存中分页）
     if (semantic === 'true' && keyword && keyword.trim() && AI_CONFIG.apiKey) {
       try {
+        const visibilitySql = isAdmin ? '' : ' WHERE visible_to_guest = 1';
         const [allRows] = await pool.execute(
-          `SELECT id, title, tags, createTime, author, content, ai_summary, embedding FROM articles`
+          `SELECT id, title, tags, createTime, author, content, ai_summary, embedding, visible_to_guest FROM articles${visibilitySql}`
         );
 
         const searchResults = await semanticSearch(keyword.trim(), allRows);
@@ -112,6 +115,7 @@ router.get('/', async (req, res) => {
           summary: article.ai_summary || cleanSummary(article.content),
           images: extractImages(article.content).slice(0, 4),
           files: extractFiles(article.content).slice(0, 5),
+          visibleToGuest: article.visible_to_guest === 1,
           similarity: Math.round(article.similarity * 100)
         }));
 
@@ -122,14 +126,20 @@ router.get('/', async (req, res) => {
     }
 
     // 常规关键词搜索 / 全量列表（数据库层分页）
-    let whereSql = '';
-    let whereParams = [];
+    const whereClauses = [];
+    const whereParams = [];
+
+    if (!isAdmin) {
+      whereClauses.push('visible_to_guest = 1');
+    }
 
     if (keyword && keyword.trim()) {
       const searchTerm = `%${keyword.trim()}%`;
-      whereSql = ' WHERE title LIKE ? OR content LIKE ?';
-      whereParams = [searchTerm, searchTerm];
+      whereClauses.push('(title LIKE ? OR content LIKE ?)');
+      whereParams.push(searchTerm, searchTerm);
     }
+
+    const whereSql = whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : '';
 
     // 先查询总数
     const [countRows] = await pool.execute(
@@ -140,7 +150,7 @@ router.get('/', async (req, res) => {
 
     // mysql2 对 LIMIT/OFFSET 占位符兼容性差，这里直接拼接安全的整数值
     const listSql =
-      `SELECT id, title, tags, createTime, author, content, ai_summary FROM articles${whereSql}` +
+      `SELECT id, title, tags, createTime, author, content, ai_summary, visible_to_guest FROM articles${whereSql}` +
       ` ORDER BY createTime DESC LIMIT ${pageSize} OFFSET ${offset}`;
 
     const [rows] = await pool.execute(listSql, whereParams);
@@ -153,7 +163,8 @@ router.get('/', async (req, res) => {
       author: article.author,
       summary: article.ai_summary || cleanSummary(article.content),
       images: extractImages(article.content).slice(0, 4),
-      files: extractFiles(article.content).slice(0, 5)
+      files: extractFiles(article.content).slice(0, 5),
+      visibleToGuest: article.visible_to_guest === 1
     }));
 
     res.success(
@@ -171,20 +182,30 @@ router.get('/', async (req, res) => {
  * 获取单篇文章详情（公开接口）
  * AI 摘要由前端通过流式 API 单独请求
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', optionalAuthMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const [rows] = await pool.execute(
       'SELECT * FROM articles WHERE id = ?',
       [id]
     );
-    
+
     if (rows.length === 0) {
       return res.error('文章不存在', 404);
     }
-    
-    res.success(rows[0], '获取文章详情成功');
+
+    const article = rows[0];
+
+    // 仅管理员可阅读的文章，访客不可见
+    if (!req.user && article.visible_to_guest !== 1) {
+      return res.error('该文章仅管理员可见', 403);
+    }
+
+    // 统一布尔字段返回（前端使用 visibleToGuest）
+    article.visibleToGuest = article.visible_to_guest === 1;
+
+    res.success(article, '获取文章详情成功');
   } catch (error) {
     console.error('获取文章详情错误:', error);
     res.error('获取文章详情失败', 500);
@@ -202,12 +223,17 @@ router.post('/', authMiddleware, async (req, res) => {
     const { title, content } = req.body;
     let { tags } = req.body;
     const author = req.user.username;
-    
+
+    // 访客可见性，默认 true（向后兼容旧客户端）
+    const visibleToGuest = req.body.visibleToGuest === undefined
+      ? 1
+      : (req.body.visibleToGuest ? 1 : 0);
+
     // 参数校验
     if (!title || !content) {
       return res.error('标题和内容不能为空', 400);
     }
-    
+
     // 如果没有标签且配置了 AI，自动生成标签
     if ((!tags || !tags.trim()) && AI_CONFIG.apiKey) {
       try {
@@ -218,12 +244,12 @@ router.post('/', authMiddleware, async (req, res) => {
         tags = '';
       }
     }
-    
+
     const [result] = await pool.execute(
-      'INSERT INTO articles (title, content, tags, author) VALUES (?, ?, ?, ?)',
-      [title, content, tags || '', author]
+      'INSERT INTO articles (title, content, tags, author, visible_to_guest) VALUES (?, ?, ?, ?, ?)',
+      [title, content, tags || '', author, visibleToGuest]
     );
-    
+
     const articleId = result.insertId;
     
     // 异步生成向量嵌入（用于语义搜索）
@@ -245,6 +271,7 @@ router.post('/', authMiddleware, async (req, res) => {
       title,
       tags: tags || '',
       author,
+      visibleToGuest: visibleToGuest === 1,
       autoTags: !req.body.tags && tags ? true : false
     }, tags && !req.body.tags ? '文章发布成功，AI 已自动生成标签' : '文章发布成功');
   } catch (error) {
@@ -263,28 +290,33 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
     const { title, content, tags } = req.body;
     const author = req.user.username;
-    
+
     // 检查文章是否存在且属于当前用户
     const [existing] = await pool.execute(
       'SELECT * FROM articles WHERE id = ? AND author = ?',
       [id, author]
     );
-    
+
     if (existing.length === 0) {
       return res.error('文章不存在或无权限编辑', 404);
     }
-    
+
     // 参数校验
     if (!title || !content) {
       return res.error('标题和内容不能为空', 400);
     }
-    
+
+    // 访客可见性：未传则保留原值
+    const visibleToGuest = req.body.visibleToGuest === undefined
+      ? existing[0].visible_to_guest
+      : (req.body.visibleToGuest ? 1 : 0);
+
     // 内容变化时清空 AI 摘要，让系统重新生成
     const contentChanged = existing[0].content !== content;
-    
+
     await pool.execute(
-      'UPDATE articles SET title = ?, content = ?, tags = ?, ai_summary = ? WHERE id = ?',
-      [title, content, tags || '', contentChanged ? null : existing[0].ai_summary, id]
+      'UPDATE articles SET title = ?, content = ?, tags = ?, ai_summary = ?, visible_to_guest = ? WHERE id = ?',
+      [title, content, tags || '', contentChanged ? null : existing[0].ai_summary, visibleToGuest, id]
     );
     
     // 异步更新向量嵌入
@@ -301,7 +333,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
         .catch(err => console.error('异步更新向量失败:', err.message));
     }
     
-    res.success({ id, title, tags }, '文章更新成功');
+    res.success({ id, title, tags, visibleToGuest: visibleToGuest === 1 }, '文章更新成功');
   } catch (error) {
     console.error('更新文章错误:', error);
     res.error('文章更新失败', 500);

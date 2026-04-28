@@ -537,8 +537,13 @@ function ArticleDetail() {
 
       <article className="detail-content" ref={contentRef}>
         <header className="detail-header">
-          <h1 className="detail-title">{article.title}</h1>
-          
+          <h1 className="detail-title">
+            {article.visibleToGuest === false && (
+              <span className="article-private-badge" title="该文章仅管理员可见">私密</span>
+            )}
+            {article.title}
+          </h1>
+
           <div className="detail-meta">
             <span className="detail-date">{formatDate(article.createTime)}</span>
             {article.author && (

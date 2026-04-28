@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS articles (
   createTime DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
   author VARCHAR(50) COMMENT '作者（关联管理员用户名）',
   ai_summary VARCHAR(500) DEFAULT NULL COMMENT 'AI生成摘要',
-  embedding JSON DEFAULT NULL COMMENT '文章向量（语义搜索用）'
+  embedding JSON DEFAULT NULL COMMENT '文章向量（语义搜索用）',
+  visible_to_guest TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否允许访客阅读：1=允许（默认），0=仅管理员'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文章表';
 
 -- 插入示例文章

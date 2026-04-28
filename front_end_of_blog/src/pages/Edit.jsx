@@ -17,7 +17,8 @@ function Edit() {
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    tags: ''
+    tags: '',
+    visibleToGuest: true
   });
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
@@ -37,10 +38,16 @@ function Edit() {
       setFetching(true);
       const res = await getArticle(id);
       if (res.code === 200) {
+        const data = res.data || {};
+        // 兼容字段命名：visibleToGuest（标准）/ visible_to_guest（数据库原始字段）
+        const visible = data.visibleToGuest !== undefined
+          ? data.visibleToGuest
+          : (data.visible_to_guest === undefined || data.visible_to_guest === 1);
         setFormData({
-          title: res.data.title || '',
-          content: res.data.content || '',
-          tags: res.data.tags || ''
+          title: data.title || '',
+          content: data.content || '',
+          tags: data.tags || '',
+          visibleToGuest: !!visible
         });
       } else {
         setError(res.msg || '文章不存在');
@@ -103,7 +110,8 @@ function Edit() {
       const res = await updateArticle(id, {
         title: formData.title.trim(),
         content: formData.content,
-        tags: formData.tags.trim()
+        tags: formData.tags.trim(),
+        visibleToGuest: formData.visibleToGuest
       });
 
       if (res.code === 200) {
@@ -193,6 +201,30 @@ function Edit() {
               placeholder="多个标签用逗号分隔，如：技术,React,前端"
             />
             <p className="form-hint">可使用上方「AI 生成标签」按钮自动生成</p>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">阅读权限</label>
+            <div className="visibility-toggle">
+              <div className="visibility-toggle-info">
+                <span className="visibility-toggle-title">
+                  {formData.visibleToGuest ? '允许访客阅读（公开）' : '仅管理员可见（私密）'}
+                </span>
+                <span className="visibility-toggle-desc">
+                  {formData.visibleToGuest
+                    ? '所有人都可以在文章列表和详情页看到这篇文章'
+                    : '未登录的访客既不会在列表中看到，也无法访问详情页'}
+                </span>
+              </div>
+              <label className="visibility-switch">
+                <input
+                  type="checkbox"
+                  checked={formData.visibleToGuest}
+                  onChange={(e) => setFormData(prev => ({ ...prev, visibleToGuest: e.target.checked }))}
+                />
+                <span className="visibility-switch-slider"></span>
+              </label>
+            </div>
           </div>
 
           <div className="form-actions">

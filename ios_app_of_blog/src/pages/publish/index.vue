@@ -58,6 +58,23 @@
       </view>
     </view>
 
+    <!-- 阅读权限 -->
+    <view class="form-group">
+      <text class="form-label">阅读权限</text>
+      <view class="visibility-toggle" @click="visibleToGuest = !visibleToGuest">
+        <view class="visibility-info">
+          <text class="visibility-title">{{ visibleToGuest ? '允许访客阅读（公开）' : '仅管理员可见（私密）' }}</text>
+          <text class="visibility-desc">{{ visibleToGuest ? '所有人都能在列表与详情看到该文章' : '未登录访客既不会看到也无法访问' }}</text>
+        </view>
+        <switch
+          :checked="visibleToGuest"
+          color="#2563eb"
+          @change="(e) => visibleToGuest = e.detail.value"
+          @click.stop
+        />
+      </view>
+    </view>
+
     <!-- 发布按钮 -->
     <view class="submit-btn" :class="{ disabled: submitting }" @click="doPublish">
       <text class="submit-btn-text">{{ submitting ? '发布中...' : '发布文章' }}</text>
@@ -77,6 +94,7 @@ export default {
       title: '',
       content: '',
       tags: '',
+      visibleToGuest: true,
       submitting: false
     }
   },
@@ -206,7 +224,8 @@ export default {
         const res = await createArticle({
           title: this.title,
           content: this.content,
-          tags: this.tags
+          tags: this.tags,
+          visibleToGuest: this.visibleToGuest
         })
         if (res.code === 200) {
           uni.showToast({ title: '发布成功', icon: 'success' })
@@ -309,6 +328,35 @@ export default {
   font-size: 24rpx;
   color: #2563eb;
   font-weight: 500;
+}
+
+.visibility-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+  padding: 24rpx;
+  background-color: #ffffff;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 16rpx;
+}
+
+.visibility-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.visibility-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.visibility-desc {
+  font-size: 22rpx;
+  color: #999;
 }
 
 .submit-btn {

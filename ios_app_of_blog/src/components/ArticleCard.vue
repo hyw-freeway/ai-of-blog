@@ -1,6 +1,7 @@
 <template>
   <view class="article-card" @click="goDetail">
     <view class="card-title">
+      <text v-if="article.visibleToGuest === false" class="private-badge">私密</text>
       <text v-if="!keyword">{{ article.title }}</text>
       <rich-text v-else :nodes="highlightText(article.title)" />
     </view>
@@ -76,6 +77,19 @@ export default {
   color: #1a1a1a;
   line-height: 1.4;
   margin-bottom: 16rpx;
+}
+
+.private-badge {
+  display: inline-block;
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #b45309;
+  background-color: #fef3c7;
+  border: 1rpx solid #fcd34d;
+  padding: 2rpx 12rpx;
+  border-radius: 999rpx;
+  margin-right: 12rpx;
+  vertical-align: middle;
 }
 
 .card-summary {

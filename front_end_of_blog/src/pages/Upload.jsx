@@ -16,7 +16,8 @@ function Upload() {
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    tags: ''
+    tags: '',
+    visibleToGuest: true
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -79,7 +80,8 @@ function Upload() {
       const res = await createArticle({
         title: formData.title.trim(),
         content: formData.content,
-        tags: formData.tags.trim()
+        tags: formData.tags.trim(),
+        visibleToGuest: formData.visibleToGuest
       });
 
       if (res.code === 200) {
@@ -157,6 +159,30 @@ function Upload() {
               placeholder="多个标签用逗号分隔，如：技术,React,前端"
             />
             <p className="form-hint">留空则发布时自动由 AI 生成标签，或使用上方「AI 生成标签」按钮预览</p>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">阅读权限</label>
+            <div className="visibility-toggle">
+              <div className="visibility-toggle-info">
+                <span className="visibility-toggle-title">
+                  {formData.visibleToGuest ? '允许访客阅读（公开）' : '仅管理员可见（私密）'}
+                </span>
+                <span className="visibility-toggle-desc">
+                  {formData.visibleToGuest
+                    ? '所有人都可以在文章列表和详情页看到这篇文章'
+                    : '未登录的访客既不会在列表中看到，也无法访问详情页'}
+                </span>
+              </div>
+              <label className="visibility-switch">
+                <input
+                  type="checkbox"
+                  checked={formData.visibleToGuest}
+                  onChange={(e) => setFormData(prev => ({ ...prev, visibleToGuest: e.target.checked }))}
+                />
+                <span className="visibility-switch-slider"></span>
+              </label>
+            </div>
           </div>
 
           <div className="form-actions">

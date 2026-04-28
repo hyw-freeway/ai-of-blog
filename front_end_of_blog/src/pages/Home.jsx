@@ -405,9 +405,12 @@ function Home() {
               >
                 <div className="article-card-content">
                   <h2 className="article-title">
+                    {article.visibleToGuest === false && (
+                      <span className="article-private-badge" title="该文章仅管理员可见">私密</span>
+                    )}
                     {searchKeyword ? highlightText(article.title, searchKeyword) : article.title}
                   </h2>
-                  
+
                   <div className="article-meta">
                     <span className="article-date">{formatDate(article.createTime)}</span>
                     {article.author && (

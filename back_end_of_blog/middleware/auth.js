@@ -40,6 +40,33 @@ function authMiddleware(req, res, next) {
 }
 
 /**
+ * 可选认证中间件
+ * 如果请求带有合法 token，则把用户信息挂到 req.user；
+ * 如果没有或 token 无效，不报错，仅以访客身份继续。
+ * 用于既要支持访客访问、又要给管理员开放更多权限的接口。
+ */
+function optionalAuthMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    req.user = null;
+    return next();
+  }
+
+  const parts = authHeader.split(' ');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    req.user = null;
+    return next();
+  }
+
+  try {
+    req.user = jwt.verify(parts[1], JWT_SECRET);
+  } catch (error) {
+    req.user = null;
+  }
+  next();
+}
+
+/**
  * 生成 JWT token
  * @param {Object} payload - 需要编码的数据
  * @returns {string} JWT token
@@ -50,4 +77,4 @@ function generateToken(payload) {
   });
 }
 
-module.exports = { authMiddleware, generateToken };
+module.exports = { authMiddleware, optionalAuthMiddleware, generateToken };
