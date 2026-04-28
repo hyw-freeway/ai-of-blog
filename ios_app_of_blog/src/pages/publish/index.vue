@@ -79,6 +79,9 @@
     <view class="submit-btn" :class="{ disabled: submitting }" @click="doPublish">
       <text class="submit-btn-text">{{ submitting ? '发布中...' : '发布文章' }}</text>
     </view>
+
+    <!-- 滚动导航：一键回顶部 / 一键到底部 -->
+    <ScrollNav :scrollTop="scrollTop" />
   </view>
 </template>
 
@@ -86,17 +89,22 @@
 import { createArticle, uploadImage, uploadFile, generateTags, proofreadContent } from '../../services/api'
 import { isLoggedIn } from '../../utils/auth'
 import MarkdownToolbar from '../../components/MarkdownToolbar.vue'
+import ScrollNav from '../../components/ScrollNav.vue'
 
 export default {
-  components: { MarkdownToolbar },
+  components: { MarkdownToolbar, ScrollNav },
   data() {
     return {
       title: '',
       content: '',
       tags: '',
       visibleToGuest: true,
-      submitting: false
+      submitting: false,
+      scrollTop: 0
     }
+  },
+  onPageScroll(e) {
+    this.scrollTop = e.scrollTop
   },
   onShow() {
     if (!isLoggedIn()) {

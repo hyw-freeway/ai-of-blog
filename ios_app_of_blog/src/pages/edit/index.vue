@@ -85,6 +85,9 @@
         <text class="submit-btn-text">{{ submitting ? '保存中...' : '保存修改' }}</text>
       </view>
     </view>
+
+    <!-- 滚动导航：一键回顶部 / 一键到底部 -->
+    <ScrollNav :scrollTop="scrollTop" />
   </view>
 </template>
 
@@ -92,9 +95,10 @@
 import { getArticle, updateArticle, uploadImage, uploadFile, generateTags, proofreadContent } from '../../services/api'
 import { isLoggedIn } from '../../utils/auth'
 import MarkdownToolbar from '../../components/MarkdownToolbar.vue'
+import ScrollNav from '../../components/ScrollNav.vue'
 
 export default {
-  components: { MarkdownToolbar },
+  components: { MarkdownToolbar, ScrollNav },
   data() {
     return {
       articleId: null,
@@ -103,8 +107,12 @@ export default {
       tags: '',
       visibleToGuest: true,
       loading: true,
-      submitting: false
+      submitting: false,
+      scrollTop: 0
     }
+  },
+  onPageScroll(e) {
+    this.scrollTop = e.scrollTop
   },
   onLoad(options) {
     if (!isLoggedIn()) {

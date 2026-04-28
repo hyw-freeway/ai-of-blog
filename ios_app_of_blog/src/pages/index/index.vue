@@ -148,6 +148,9 @@
       <text class="footer-text">© {{ currentYear }} 个人博客. All rights reserved.</text>
     </view>
 
+    <!-- 滚动导航：一键回顶部 / 一键到底部 -->
+    <ScrollNav :scrollTop="scrollTop" />
+
     <!-- 内嵌浏览器覆盖层（v-show 保持 iframe 存活，登录状态不丢失） -->
     <view class="webview-overlay" v-show="showWebview">
       <view class="webview-header" :style="{ paddingTop: statusBarHeight + 'px' }">
@@ -178,9 +181,10 @@
 import { getArticles } from '../../services/api'
 import { isLoggedIn, getUsername, clearAuth } from '../../utils/auth'
 import ArticleCard from '../../components/ArticleCard.vue'
+import ScrollNav from '../../components/ScrollNav.vue'
 
 export default {
-  components: { ArticleCard },
+  components: { ArticleCard, ScrollNav },
   data() {
     return {
       articles: [],
@@ -203,7 +207,8 @@ export default {
       showLogoutModal: false,
       showWebview: false,
       webviewLoaded: false,
-      webviewUrl: 'https://i.finka.cn/hd/app/login?source_channel=OFFICIAL_WEBSITE#/home'
+      webviewUrl: 'https://i.finka.cn/hd/app/login?source_channel=OFFICIAL_WEBSITE#/home',
+      scrollTop: 0
     }
   },
   onShow() {
@@ -222,6 +227,9 @@ export default {
     if (!this.loading && !this.loadingMore && this.page < this.totalPages) {
       this.loadMore()
     }
+  },
+  onPageScroll(e) {
+    this.scrollTop = e.scrollTop
   },
   methods: {
     onIconClick() {

@@ -82,6 +82,9 @@
         <text class="footer-text">© {{ currentYear }} 个人博客. All rights reserved.</text>
       </view>
     </view>
+
+    <!-- 滚动导航：一键回顶部 / 一键到底部 -->
+    <ScrollNav :scrollTop="scrollTop" />
   </view>
 </template>
 
@@ -91,6 +94,7 @@ import { getArticle, deleteArticle, getArticleFAQ, generateSummary, getFileUrl }
 import { isLoggedIn, getUsername } from '../../utils/auth'
 import AiSummary from '../../components/AiSummary.vue'
 import FaqAccordion from '../../components/FaqAccordion.vue'
+import ScrollNav from '../../components/ScrollNav.vue'
 
 marked.setOptions({ gfm: true, breaks: true })
 
@@ -117,7 +121,7 @@ function extractFiles(content) {
 }
 
 export default {
-  components: { AiSummary, FaqAccordion },
+  components: { AiSummary, FaqAccordion, ScrollNav },
   data() {
     return {
       article: null,
@@ -129,7 +133,8 @@ export default {
       deleting: false,
       summaryLoading: false,
       generatedSummary: '',
-      currentYear: new Date().getFullYear()
+      currentYear: new Date().getFullYear(),
+      scrollTop: 0
     }
   },
   computed: {
@@ -151,6 +156,9 @@ export default {
   onLoad(options) {
     this.articleId = options.id
     this.fetchArticle()
+  },
+  onPageScroll(e) {
+    this.scrollTop = e.scrollTop
   },
   methods: {
     async fetchArticle() {
