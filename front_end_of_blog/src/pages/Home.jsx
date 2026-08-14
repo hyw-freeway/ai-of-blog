@@ -4,7 +4,7 @@
  */
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getArticles, getFileUrl } from '../services/api';
+import { getArticles, getFileUrl, getAllTags } from '../services/api';
 import './Home.css';
 
 // 文件图标 SVG
@@ -72,15 +72,34 @@ function Home() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [allTags, setAllTags] = useState([]);
+  const [selectedTag, setSelectedTag] = useState('');
+  const [showAllTags, setShowAllTags] = useState(false);
 
   useEffect(() => {
     fetchArticles();
-  }, [searchKeyword, searchMode, page]);
+  }, [searchKeyword, searchMode, page, selectedTag]);
 
-  // 切换搜索关键词或搜索模式时重置到第 1 页
+  // 切换搜索关键词、搜索模式或标签时重置到第 1 页
   useEffect(() => {
     setPage(1);
-  }, [searchKeyword, searchMode]);
+  }, [searchKeyword, searchMode, selectedTag]);
+
+  // 获取所有标签
+  useEffect(() => {
+    fetchTags();
+  }, []);
+
+  const fetchTags = async () => {
+    try {
+      const res = await getAllTags();
+      if (res.code === 200) {
+        setAllTags(res.data || []);
+      }
+    } catch (err) {
+      console.error('获取标签列表失败:', err);
+    }
+  };
 
   // 点击其他地方关闭文件菜单
   useEffect(() => {
@@ -96,7 +115,7 @@ function Home() {
       setLoading(true);
       setError(null);
       const isSemantic = searchMode === 'semantic' && searchKeyword;
-      const res = await getArticles(searchKeyword, isSemantic, page, PAGE_SIZE);
+      const res = await getArticles(searchKeyword, isSemantic, page, PAGE_SIZE, selectedTag);
       if (res.code === 200) {
         const data = res.data || {};
         // 兼容旧接口直接返回数组的情况
@@ -152,6 +171,18 @@ function Home() {
     setSearchKeyword('');
   };
 
+  const handleTagClick = (tagName) => {
+    if (selectedTag === tagName) {
+      setSelectedTag('');
+    } else {
+      setSelectedTag(tagName);
+    }
+  };
+
+  const handleClearTag = () => {
+    setSelectedTag('');
+  };
+
   const handleSearchModeChange = (mode) => {
     setSearchMode(mode);
     if (searchKeyword) {
@@ -170,9 +201,22 @@ function Home() {
 
   const renderTags = (tags) => {
     if (!tags) return null;
-    return tags.split(',').map((tag, index) => (
-      <span key={index} className="tag">{tag.trim()}</span>
-    ));
+    return tags.split(',').map((tag, index) => {
+      const tagName = tag.trim();
+      return (
+        <span 
+          key={index} 
+          className={`tag tag-clickable ${selectedTag === tagName ? 'tag-active' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleTagClick(tagName);
+          }}
+          title={`点击筛选「${tagName}」标签`}
+        >
+          {tagName}
+        </span>
+      );
+    });
   };
 
   const highlightText = (text, keyword) => {
@@ -357,11 +401,52 @@ function Home() {
         </button>
       </div>
 
+      {/* 标签筛选区域 */}
+      {allTags.length > 0 && (
+        <div className="tag-filter-section">
+          <div className="tag-filter-header">
+            <span className="tag-filter-label">标签筛选</span>
+            {selectedTag && (
+              <button className="tag-filter-clear" onClick={handleClearTag}>
+                清除筛选
+              </button>
+            )}
+          </div>
+          <div className={`tag-filter-list ${showAllTags ? 'expanded' : ''}`}>
+            {(showAllTags ? allTags : allTags.slice(0, 10)).map((tag) => (
+              <button
+                key={tag.name}
+                className={`tag-filter-item ${selectedTag === tag.name ? 'active' : ''}`}
+                onClick={() => handleTagClick(tag.name)}
+              >
+                {tag.name}
+                <span className="tag-count">{tag.count}</span>
+              </button>
+            ))}
+            {allTags.length > 10 && (
+              <button
+                className="tag-filter-toggle"
+                onClick={() => setShowAllTags(!showAllTags)}
+              >
+                {showAllTags ? '收起' : `更多 (${allTags.length - 10})`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 搜索结果提示 */}
-      {searchKeyword && !loading && (
+      {(searchKeyword || selectedTag) && !loading && (
         <div className="search-result-info">
-          {searchMode === 'semantic' ? '智能' : ''}搜索 "<strong>{searchKeyword}</strong>" 找到 {total} 篇文章
-          {searchMode === 'semantic' && total > 0 && (
+          {searchKeyword && (
+            <>{searchMode === 'semantic' ? '智能' : ''}搜索 "<strong>{searchKeyword}</strong>"</>
+          )}
+          {searchKeyword && selectedTag && ' + '}
+          {selectedTag && (
+            <>标签 "<strong>{selectedTag}</strong>"</>
+          )}
+          {' '}找到 {total} 篇文章
+          {searchMode === 'semantic' && searchKeyword && total > 0 && (
             <span className="search-mode-hint">（按语义相关度排序）</span>
           )}
         </div>

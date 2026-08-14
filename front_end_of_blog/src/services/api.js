@@ -41,13 +41,17 @@ api.interceptors.response.use(
 
 // ========== 文章相关 API ==========
 
-// 获取文章列表（支持搜索、语义搜索与分页）
-export const getArticles = (keyword = '', semantic = false, page = 1, pageSize = 10) => {
+// 获取文章列表（支持搜索、语义搜索、标签过滤与分页）
+export const getArticles = (keyword = '', semantic = false, page = 1, pageSize = 10, tag = '') => {
   const params = { page, pageSize };
   if (keyword) params.keyword = keyword;
   if (semantic) params.semantic = 'true';
+  if (tag) params.tag = tag;
   return api.get('/api/articles', { params });
 };
+
+// 获取所有标签列表
+export const getAllTags = () => api.get('/api/articles/tags');
 
 // 获取文章详情
 export const getArticle = (id) => api.get(`/api/articles/${id}`);

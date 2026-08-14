@@ -64,10 +64,47 @@ function cleanSummary(content) {
 }
 
 /**
+ * GET /api/articles/tags
+ * 获取所有标签列表（公开接口）
+ * 返回：去重后的标签数组，按使用频率排序
+ */
+router.get('/tags', async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT tags FROM articles WHERE tags IS NOT NULL AND tags != ""'
+    );
+    
+    // 统计每个标签的出现次数
+    const tagCount = {};
+    rows.forEach(row => {
+      if (row.tags) {
+        row.tags.split(',').forEach(tag => {
+          const trimmedTag = tag.trim();
+          if (trimmedTag) {
+            tagCount[trimmedTag] = (tagCount[trimmedTag] || 0) + 1;
+          }
+        });
+      }
+    });
+    
+    // 按使用频率排序
+    const sortedTags = Object.entries(tagCount)
+      .sort((a, b) => b[1] - a[1])
+      .map(([tag, count]) => ({ name: tag, count }));
+    
+    res.success(sortedTags, '获取标签列表成功');
+  } catch (error) {
+    console.error('获取标签列表错误:', error);
+    res.error('获取标签列表失败', 500);
+  }
+});
+
+/**
  * GET /api/articles
  * 获取文章列表（公开接口），支持分页
  * 查询参数：
  *   - keyword:  模糊搜索标题和内容
+ *   - tag:      按标签过滤
  *   - semantic: 'true' 启用语义搜索
  *   - page:     页码，从 1 开始（默认 1）
  *   - pageSize: 每页条数（默认 10，最大 100）
@@ -75,7 +112,7 @@ function cleanSummary(content) {
  */
 router.get('/', optionalAuthMiddleware, async (req, res) => {
   try {
-    const { keyword, semantic } = req.query;
+    const { keyword, semantic, tag } = req.query;
     // 是否为已登录的管理员（管理员可看全部，访客仅能看 visible_to_guest = 1）
     const isAdmin = !!req.user;
 
@@ -102,7 +139,18 @@ router.get('/', optionalAuthMiddleware, async (req, res) => {
           `SELECT id, title, tags, createTime, author, content, ai_summary, embedding, visible_to_guest FROM articles${visibilitySql}`
         );
 
-        const searchResults = await semanticSearch(keyword.trim(), allRows);
+        let searchResults = await semanticSearch(keyword.trim(), allRows);
+        
+        // 如果同时有标签过滤，在语义搜索结果中再过滤
+        if (tag && tag.trim()) {
+          const targetTag = tag.trim().toLowerCase();
+          searchResults = searchResults.filter(article => {
+            if (!article.tags) return false;
+            const articleTags = article.tags.split(',').map(t => t.trim().toLowerCase());
+            return articleTags.includes(targetTag);
+          });
+        }
+        
         const total = searchResults.length;
         const pageItems = searchResults.slice(offset, offset + pageSize);
 
@@ -137,6 +185,20 @@ router.get('/', optionalAuthMiddleware, async (req, res) => {
       const searchTerm = `%${keyword.trim()}%`;
       whereClauses.push('(title LIKE ? OR content LIKE ?)');
       whereParams.push(searchTerm, searchTerm);
+    }
+
+    // 按标签过滤
+    if (tag && tag.trim()) {
+      // 使用 FIND_IN_SET 或 LIKE 进行标签匹配
+      // 由于标签是逗号分隔存储，使用 LIKE 模糊匹配
+      const tagPattern = tag.trim();
+      whereClauses.push('(tags LIKE ? OR tags LIKE ? OR tags LIKE ? OR tags = ?)');
+      whereParams.push(
+        `${tagPattern},%`,      // 标签在开头
+        `%,${tagPattern},%`,    // 标签在中间
+        `%,${tagPattern}`,      // 标签在结尾
+        tagPattern              // 只有一个标签
+      );
     }
 
     const whereSql = whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : '';
