@@ -133,6 +133,46 @@
   height: 14px;
 }
 
+/* 管理员：全部 / 私密文章 Tab */
+.visibility-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+  background-color: var(--color-surface);
+}
+
+.visibility-tab {
+  padding: 10px 22px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.visibility-tab + .visibility-tab {
+  border-left: 1px solid var(--color-border);
+}
+
+.visibility-tab:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg);
+}
+
+.visibility-tab.active {
+  color: #fff;
+  background-color: var(--color-text-primary);
+}
+
 /* 标签筛选区域 */
 .tag-filter-section {
   margin-bottom: 32px;
@@ -617,6 +657,17 @@
 
   .search-btn {
     flex: 1;
+  }
+
+  .visibility-tabs {
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .visibility-tab {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 13px;
   }
 
   .tag-filter-section {

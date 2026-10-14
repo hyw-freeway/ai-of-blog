@@ -105,6 +105,7 @@ router.get('/tags', async (req, res) => {
  * 查询参数：
  *   - keyword:  模糊搜索标题和内容
  *   - tag:      按标签过滤
+ *   - visibility: all | public | private（仅管理员可用 private；访客始终仅公开）
  *   - semantic: 'true' 启用语义搜索
  *   - page:     页码，从 1 开始（默认 1）
  *   - pageSize: 每页条数（默认 10，最大 100）
@@ -112,9 +113,17 @@ router.get('/tags', async (req, res) => {
  */
 router.get('/', optionalAuthMiddleware, async (req, res) => {
   try {
-    const { keyword, semantic, tag } = req.query;
+    const { keyword, semantic, tag, visibility } = req.query;
     // 是否为已登录的管理员（管理员可看全部，访客仅能看 visible_to_guest = 1）
     const isAdmin = !!req.user;
+
+    // 可见性过滤：访客强制公开；管理员可选 all / public / private
+    let visibilityFilter = 'public';
+    if (isAdmin) {
+      if (visibility === 'private') visibilityFilter = 'private';
+      else if (visibility === 'public') visibilityFilter = 'public';
+      else visibilityFilter = 'all';
+    }
 
     // 解析分页参数
     let page = parseInt(req.query.page, 10);
@@ -134,7 +143,12 @@ router.get('/', optionalAuthMiddleware, async (req, res) => {
     // 语义搜索模式（先全量计算相似度，再在内存中分页）
     if (semantic === 'true' && keyword && keyword.trim() && AI_CONFIG.apiKey) {
       try {
-        const visibilitySql = isAdmin ? '' : ' WHERE visible_to_guest = 1';
+        let visibilitySql = '';
+        if (visibilityFilter === 'public') {
+          visibilitySql = ' WHERE visible_to_guest = 1';
+        } else if (visibilityFilter === 'private') {
+          visibilitySql = ' WHERE visible_to_guest = 0';
+        }
         const [allRows] = await pool.execute(
           `SELECT id, title, tags, createTime, author, content, ai_summary, embedding, visible_to_guest FROM articles${visibilitySql}`
         );
@@ -177,8 +191,10 @@ router.get('/', optionalAuthMiddleware, async (req, res) => {
     const whereClauses = [];
     const whereParams = [];
 
-    if (!isAdmin) {
+    if (visibilityFilter === 'public') {
       whereClauses.push('visible_to_guest = 1');
+    } else if (visibilityFilter === 'private') {
+      whereClauses.push('visible_to_guest = 0');
     }
 
     if (keyword && keyword.trim()) {

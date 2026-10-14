@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getArticles, getFileUrl, getAllTags } from '../services/api';
+import { isLoggedIn } from '../utils/auth';
 import './Home.css';
 
 // 文件图标 SVG
@@ -75,15 +76,18 @@ function Home() {
   const [allTags, setAllTags] = useState([]);
   const [selectedTag, setSelectedTag] = useState('');
   const [showAllTags, setShowAllTags] = useState(false);
+  // 管理员可见性 Tab：all=全部，private=仅私密
+  const [visibilityTab, setVisibilityTab] = useState('all');
+  const loggedIn = isLoggedIn();
 
   useEffect(() => {
     fetchArticles();
-  }, [searchKeyword, searchMode, page, selectedTag]);
+  }, [searchKeyword, searchMode, page, selectedTag, visibilityTab]);
 
-  // 切换搜索关键词、搜索模式或标签时重置到第 1 页
+  // 切换搜索关键词、搜索模式、标签或可见性时重置到第 1 页
   useEffect(() => {
     setPage(1);
-  }, [searchKeyword, searchMode, selectedTag]);
+  }, [searchKeyword, searchMode, selectedTag, visibilityTab]);
 
   // 获取所有标签
   useEffect(() => {
@@ -115,7 +119,8 @@ function Home() {
       setLoading(true);
       setError(null);
       const isSemantic = searchMode === 'semantic' && searchKeyword;
-      const res = await getArticles(searchKeyword, isSemantic, page, PAGE_SIZE, selectedTag);
+      const visibility = loggedIn ? visibilityTab : '';
+      const res = await getArticles(searchKeyword, isSemantic, page, PAGE_SIZE, selectedTag, visibility);
       if (res.code === 200) {
         const data = res.data || {};
         // 兼容旧接口直接返回数组的情况
@@ -401,6 +406,30 @@ function Home() {
         </button>
       </div>
 
+      {/* 管理员：全部 / 私密文章 Tab */}
+      {loggedIn && (
+        <div className="visibility-tabs" role="tablist" aria-label="文章可见性筛选">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={visibilityTab === 'all'}
+            className={`visibility-tab ${visibilityTab === 'all' ? 'active' : ''}`}
+            onClick={() => setVisibilityTab('all')}
+          >
+            全部文章
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={visibilityTab === 'private'}
+            className={`visibility-tab ${visibilityTab === 'private' ? 'active' : ''}`}
+            onClick={() => setVisibilityTab('private')}
+          >
+            私密文章
+          </button>
+        </div>
+      )}
+
       {/* 标签筛选区域 */}
       {allTags.length > 0 && (
         <div className="tag-filter-section">
@@ -466,10 +495,20 @@ function Home() {
         </div>
       ) : articles.length === 0 ? (
         <div className="home-empty">
-          {searchKeyword ? (
+          {searchKeyword || selectedTag ? (
             <>
               <p>未找到相关文章</p>
-              <button className="btn btn-secondary" onClick={handleClearSearch}>
+              <button className="btn btn-secondary" onClick={() => {
+                handleClearSearch();
+                handleClearTag();
+              }}>
+                查看全部文章
+              </button>
+            </>
+          ) : visibilityTab === 'private' ? (
+            <>
+              <p>暂无私密文章</p>
+              <button className="btn btn-secondary" onClick={() => setVisibilityTab('all')}>
                 查看全部文章
               </button>
             </>
